@@ -68,4 +68,4 @@ Vigil is being built toward a first public release. Planned for that release:
 
 ## License
 
-To be confirmed. Intended as permissive open source.
+MIT. See the [LICENSE](LICENSE) file.
