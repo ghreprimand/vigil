@@ -1,0 +1,760 @@
+<div class="breadcrumbs">
+  <a href="/packages">Packages</a>
+  <span class="sep">/</span>
+  <span><%= pkg.name %></span>
+</div>
+
+<% if (flash) { %>
+<div x-data="{ visible: true }" x-show="visible" x-transition.duration.300ms
+     style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;margin-bottom:1rem;padding:0.6rem 1rem;background:rgba(60,180,100,0.12);border:1px solid rgba(60,180,100,0.35);border-radius:6px;color:#6ddc90;font-size:0.9rem;">
+  <span>OK <%= flash %></span>
+  <button @click="visible = false" style="background:none;border:none;cursor:pointer;color:inherit;font-size:1rem;line-height:1;padding:0;opacity:0.7;" aria-label="Dismiss">&times;</button>
+</div>
+<% } %>
+
+<div class="page-header" style="margin-bottom: 0.25rem;">
+  <h1><%= pkg.name %></h1>
+  <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+    <% if (pkg.removedAt) { %><span class="badge badge-removed">removed</span><% } %>
+    <% if (pkg.pinnedAt) { %><span class="badge" style="background:rgba(255,140,0,0.15);color:var(--accent);border:1px solid rgba(255,140,0,0.3);">pinned</span><% } %>
+    <% if (pkg.deferredAt) { %><span class="badge" style="background:rgba(128,128,128,0.2);color:var(--text-muted);border:1px solid var(--border);">deferred</span><% } %>
+    <% if (pkg.watchedAt) { %><span class="badge" style="background:rgba(100,149,237,0.15);color:#6495ed;border:1px solid rgba(100,149,237,0.3);">watched</span><% } %>
+    <button class="btn btn-danger btn-sm" data-help="pkg-remove" style="margin-left:auto;font-size:0.75rem;padding:0.2rem 0.6rem;"
+      hx-post="/packages/<%= encodeURIComponent(pkg.name) %>/remove"
+      hx-confirm="Remove '<%= pkg.name %>' from <%= brand.productName %>? This deletes the package record and all its upstream data. It will reappear automatically on the next manifest push if still installed."
+      hx-push-url="/">
+      Remove from Monitor
+    </button>
+  </div>
+</div>
+<% if (pkg.description) { %>
+  <p class="text-secondary" style="margin-bottom: 1.25rem; font-size: 0.9rem;"><%= pkg.description %></p>
+<% } %>
+
+<%/* Deferred banner */%>
+<% if (pkg.deferredAt) { %>
+<%
+  const _deferExpires = pkg.deferDays ? new Date(new Date(pkg.deferredAt).getTime() + pkg.deferDays * 86400000) : null;
+  const _deferDaysLeft = _deferExpires ? Math.ceil((_deferExpires - new Date()) / 86400000) : null;
+  const _deferExpired = _deferDaysLeft !== null && _deferDaysLeft <= 0;
+%>
+<div x-data="{adjusting: false, duration: '<%= pkg.deferDays || 30 %>', customDays: '<%= pkg.deferDays || 30 %>'}" class="pin-banner" data-help="pkg-defer" style="flex-direction:column;align-items:stretch;gap:0.5rem;">
+  <div style="display:flex;align-items:center;gap:0.75rem;">
+    <span class="pin-banner-icon"></span>
+    <div class="pin-banner-text" style="flex:1;">
+      <% if (_deferExpired) { %>
+        <strong>Deferral expired</strong> - this package will reappear in the update queue at next scoring.
+      <% } else { %>
+        <strong>Deferred</strong> - excluded from outdated count since <%= fmtDate(pkg.deferredAt) %>.
+        <% if (_deferExpires) { %>
+          Expires <strong><%= fmtDate(_deferExpires) %></strong>
+          (<%= _deferDaysLeft %> day<%= _deferDaysLeft !== 1 ? 's' : '' %> remaining).
+        <% } %>
+        Upstream and CVE monitoring continues.
+      <% } %>
+      <% if (pkg.deferReason) { %>Reason: <em><%= pkg.deferReason %></em>.<% } %>
+    </div>
+    <div style="display:flex;gap:0.4rem;flex-shrink:0;">
+      <button class="btn btn-sm" @click="adjusting = !adjusting" x-text="adjusting ? 'Cancel' : 'Adjust'"></button>
+      <button class="btn btn-sm"
+        hx-post="/packages/<%= encodeURIComponent(pkg.name) %>/undefer"
+        hx-on::after-request="window.location.reload()">
+        Undefer
+      </button>
+    </div>
+  </div>
+  <div x-show="adjusting" x-cloak style="display:flex;flex-direction:column;gap:0.5rem;padding:0.5rem 0 0 2rem;">
+    <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">
+      <label style="font-size:0.8rem;color:var(--text-muted);">Defer for:</label>
+      <select x-model="duration" class="filter-select" style="font-size:0.8rem;">
+        <option value="7">1 week (7 days)</option>
+        <option value="30">1 month (30 days)</option>
+        <option value="90">3 months (90 days)</option>
+        <option value="custom">Custom...</option>
+      </select>
+      <template x-if="duration === 'custom'">
+        <input type="number" x-model="customDays" min="1" max="3650" class="form-input" style="width:80px;font-size:0.8rem;padding:0.25rem 0.5rem;" placeholder="days">
+      </template>
+      <input type="hidden" name="defer-days" :value="duration === 'custom' ? customDays : duration">
+      <button class="btn btn-primary btn-sm"
+        style="font-size:0.75rem;"
+        hx-post="/packages/<%= encodeURIComponent(pkg.name) %>/defer"
+        hx-include="[name='defer-days']"
+        hx-on::after-request="window.location.reload()">
+        Confirm Adjust
+      </button>
+    </div>
+    <p class="form-hint" style="margin:0;font-size:0.75rem;">Resets the deferral timer from today.</p>
+  </div>
+</div>
+<% } %>
+
+<%/* Pin/Unpin banner */%>
+<% if (pkg.pinnedAt) { %>
+<div class="pin-banner" data-help="pkg-pin">
+  <span class="pin-banner-icon"></span>
+  <div class="pin-banner-text">
+    <strong>Pinned</strong> - excluded from outdated count since <%= fmtDate(pkg.pinnedAt) %>.
+    <% if (pkg.pinReason) { %>Reason: <em><%= pkg.pinReason %></em>.<% } %>
+  </div>
+  <button class="btn btn-sm"
+    hx-post="/packages/<%= encodeURIComponent(pkg.name) %>/unpin"
+    hx-on::after-request="window.location.reload()">
+    Unpin
+  </button>
+</div>
+<% } %>
+
+<%/* Watched banner */%>
+<% if (pkg.watchedAt) { %>
+<div class="pin-banner" data-help="pkg-watch">
+  <span class="pin-banner-icon"></span>
+  <div class="pin-banner-text">
+    <strong>Watched</strong> - you'll get an email when a new upstream version is detected. Watching since <%= fmtDate(pkg.watchedAt) %>.
+  </div>
+  <button class="btn btn-sm"
+    hx-post="/packages/<%= encodeURIComponent(pkg.name) %>/unwatch"
+    hx-on::after-request="window.location.reload()">
+    Unwatch
+  </button>
+</div>
+<% } %>
+
+<% if (typeof activeAdvisories !== 'undefined' && activeAdvisories.length > 0) { %>
+<div data-help="pkg-advisories" style="display:flex;flex-direction:column;gap:0.5rem;margin-bottom:1rem;">
+  <% activeAdvisories.forEach(function(adv) { %>
+    <div class="advisory-banner advisory-banner-<%= adv.severity %>">
+      <div class="advisory-banner-icon">
+        <% if (adv.severity === 'critical') { %>
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <% } else if (adv.severity === 'warning') { %>
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        <% } else { %>
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        <% } %>
+      </div>
+      <div style="flex:1;">
+        <strong><a href="/advisories/<%= adv.id %>" style="color:inherit;"><%= adv.title %></a></strong>
+        <% if (adv.description) { %>
+          <div class="text-sm" style="margin-top:0.15rem;opacity:0.85;"><%= adv.description.substring(0, 150) %><%= adv.description.length > 150 ? '...' : '' %></div>
+        <% } %>
+        <% if (adv.kb_slug) { %>
+          <div style="margin-top:0.3rem;"><a href="/kb/<%= adv.kb_slug %>" style="font-size:0.8rem;">View article: <%= adv.kb_title %></a></div>
+        <% } %>
+      </div>
+    </div>
+  <% }) %>
+</div>
+<% } %>
+
+<div class="grid-2" style="margin-bottom: 1rem;">
+  <div class="card" data-help="pkg-metadata">
+    <div class="card-header">Package Info</div>
+    <div class="card-body">
+      <table class="info-table">
+        <tr><td>Version</td><td class="mono"><%= pkg.version %><% if (staleness) { %> <span class="badge <%= staleness.score >= 25 ? 'badge-danger' : staleness.score >= 15 ? 'badge-warning' : 'badge-info' %>" data-help="pkg-staleness-score" style="font-size:0.7rem;margin-left:0.4rem;" data-tooltip="Staleness score: <%= staleness.score %> | <%= staleness.versionsBehind %> version(s) behind, <%= staleness.daysBehind %> days"><%= staleness.score %></span><% } %></td></tr>
+        <tr data-help="pkg-architecture"><td>Architecture</td><td><%= pkg.architecture %></td></tr>
+        <% if (pkg.groups && pkg.groups.length) { %>
+          <tr data-help="pkg-groups"><td>Groups</td><td><% pkg.groups.forEach(function(g) { %><span class="badge badge-info" style="margin-right: 0.25rem;"><%= g %></span><% }) %></td></tr>
+        <% } %>
+        <% if (pkg.buildDate) { %>
+          <tr data-help="pkg-build-date"><td>Build Date</td><td><%= fmtDateTime(pkg.buildDate) %></td></tr>
+        <% } %>
+        <% if (pkg.installDate) { %>
+          <tr data-help="pkg-install-date"><td>Install Date</td><td><%= fmtDateTime(pkg.installDate) %></td></tr>
+        <% } %>
+        <tr data-help="pkg-first-seen"><td>First Seen</td><td><%= fmtDateTime(pkg.firstSeen) %></td></tr>
+        <tr data-help="pkg-last-seen"><td>Last Seen</td><td><%= fmtDateTime(pkg.lastSeen) %></td></tr>
+        <% if (pkg.removedAt) { %>
+          <tr><td>Removed</td><td><span class="badge badge-removed"><%= fmtDateTime(pkg.removedAt) %></span></td></tr>
+        <% } %>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header" data-help="pkg-dependencies" style="display:flex;align-items:center;gap:0.5rem;">
+      Dependencies
+      <a href="/graph?pkg=<%= encodeURIComponent(pkg.name) %>" class="btn btn-sm" style="margin-left:auto;font-size:0.72rem;padding:0.2rem 0.6rem;text-decoration:none;">
+        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:0.25rem;"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
+        View Graph
+      </a>
+    </div>
+    <div class="card-body">
+      <% if (pkg.depends && pkg.depends.length) { %>
+        <ul class="dep-list">
+          <% pkg.depends.forEach(function(dep) { %>
+            <li><a href="/packages/<%= encodeURIComponent(dep) %>"><%= dep %></a></li>
+          <% }) %>
+        </ul>
+      <% } else { %>
+        <p class="text-muted">No dependencies listed</p>
+      <% } %>
+      <% if (reverseDepCount > 0) { %>
+        <div data-help="pkg-reverse-deps" style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid var(--border-color);">
+          <span class="text-sm text-muted"><%= reverseDepCount %> package<%= reverseDepCount !== 1 ? 's' : '' %> depend on this</span>
+        </div>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<%/*
+  -- Upstream Source Management --
+  Alpine.js manages form show/hide and pre-populates fields from existing config.
+  htmx handles the save/remove/test API calls.
+*/%>
+<%
+const srcCfg = source ? (source.config || {}) : {};
+const initType = source ? source.sourceType : 'github';
+const sourceInit = JSON.stringify({
+  showForm: !source,
+  type: source ? source.sourceType : 'github',
+  owner: srcCfg.owner || '',
+  repo: srcCfg.repo || '',
+  tagPrefix: srcCfg.tag_prefix || '',
+  tagPattern: srcCfg.tag_pattern || '',
+  assetPattern: srcCfg.asset_pattern || '',
+  host: srcCfg.host || 'gitlab.com',
+  projectPath: srcCfg.project_path || '',
+  packageName: srcCfg.package || srcCfg.component || '',
+  url: srcCfg.url || '',
+  pattern: srcCfg.pattern || '',
+});
+%>
+<div class="card" data-help="pkg-upstream-source" style="margin-bottom: 1rem;" x-data='<%- sourceInit %>'>
+  <div class="card-header" style="display:flex;align-items:center;gap:0.5rem;">
+    <span data-tooltip="Where the monitor looks for newer versions of this package. The monitoring worker checks this source on a schedule and surfaces newer releases.">Upstream Source</span>
+    <% if (source) { %>
+      <span class="badge badge-info"><%= source.sourceType %></span>
+      <% if (!source.enabled) { %><span class="badge badge-removed">disabled</span><% } %>
+    <% } %>
+    <div style="margin-left:auto;display:flex;gap:0.5rem;">
+      <% if (source) { %>
+        <button class="btn" data-help="pkg-source-edit" style="font-size:0.75rem;padding:0.2rem 0.6rem;" @click="showForm = !showForm" x-text="showForm ? 'Cancel' : 'Edit'"></button>
+        <button class="btn btn-danger" data-help="pkg-source-remove" style="font-size:0.75rem;padding:0.2rem 0.6rem;"
+          hx-post="/packages/<%= encodeURIComponent(pkg.name) %>/source/remove"
+          hx-confirm="Remove upstream source for <%= pkg.name %>? The worker will stop checking for updates."
+          hx-on::after-request="window.location.reload()">Remove</button>
+      <% } else { %>
+        <% if (!pkg.pinnedAt && !pkg.deferredAt) { %>
+        <button class="btn btn-sm" data-help="pkg-pin"
+          hx-post="/packages/<%= encodeURIComponent(pkg.name) %>/pin"
+          hx-on::after-request="window.location.reload()"
+          style="font-size:0.75rem;padding:0.2rem 0.6rem;">Pin</button>
+        <button class="btn btn-sm" data-help="pkg-defer" style="font-size:0.75rem;padding:0.2rem 0.6rem;"
+          onclick="openDeferModal(<%- JSON.stringify(pkg.name) %>)">
+          Defer</button>
+        <% } %>
+      <% } %>
+    </div>
+  </div>
+
+  <div class="card-body">
+    <%/* -- Existing source display -- */%>
+    <% if (source) { %>
+    <div x-show="!showForm">
+      <% if (source.sourceType === 'github') { %>
+        <div class="source-config-row">
+          <span class="source-config-key">Repository</span>
+          <span class="source-config-val">
+            <a href="https://github.com/<%= srcCfg.owner %>/<%= srcCfg.repo %>" target="_blank" rel="noopener">
+              <%= srcCfg.owner %>/<%= srcCfg.repo %>
+            </a>
+          </span>
+        </div>
+        <% if (srcCfg.tag_pattern) { %>
+        <div class="source-config-row">
+          <span class="source-config-key">Tag pattern</span>
+          <span class="source-config-val"><code><%= srcCfg.tag_pattern %></code></span>
+        </div>
+        <% } %>
+        <% if (srcCfg.tag_prefix) { %>
+        <div class="source-config-row">
+          <span class="source-config-key">Tag prefix</span>
+          <span class="source-config-val"><code><%= srcCfg.tag_prefix %></code></span>
+        </div>
+        <% } %>
+        <% if (srcCfg.asset_pattern) { %>
+        <div class="source-config-row">
+          <span class="source-config-key">Asset pattern</span>
+          <span class="source-config-val"><code><%= srcCfg.asset_pattern %></code></span>
+        </div>
+        <% } %>
+      <% } else if (source.sourceType === 'gitlab') { %>
+        <div class="source-config-row">
+          <span class="source-config-key">Project</span>
+          <span class="source-config-val"><%= srcCfg.host || 'gitlab.com' %>/<%= srcCfg.project_path %></span>
+        </div>
+      <% } else if (source.sourceType === 'gnu') { %>
+        <div class="source-config-row">
+          <span class="source-config-key">Package</span>
+          <span class="source-config-val"><code><%= srcCfg.package %></code> (GNU FTP)</span>
+        </div>
+      <% } else if (source.sourceType === 'kde') { %>
+        <div class="source-config-row">
+          <span class="source-config-key">Component</span>
+          <span class="source-config-val"><code><%= srcCfg.component %></code> (KDE Invent)</span>
+        </div>
+      <% } else if (source.sourceType === 'pypi') { %>
+        <div class="source-config-row">
+          <span class="source-config-key">Package</span>
+          <span class="source-config-val"><code><%= srcCfg.package %></code> (PyPI)</span>
+        </div>
+      <% } else if (source.sourceType === 'generic') { %>
+        <div class="source-config-row">
+          <span class="source-config-key">URL</span>
+          <span class="source-config-val"><a href="<%= srcCfg.url %>" target="_blank" rel="noopener"><%= srcCfg.url %></a></span>
+        </div>
+      <% } %>
+      <div class="source-config-row" style="margin-top:0.5rem;">
+        <span class="source-config-key">Last checked</span>
+        <span id="last-checked-<%= pkg.name %>" class="source-config-val text-secondary">
+          <%= source.lastChecked ? fmtDateTime(source.lastChecked) : 'Never - will run on next worker cycle' %>
+        </span>
+        <button class="btn" data-help="pkg-source-check-now" style="font-size:0.72rem;padding:0.15rem 0.55rem;margin-left:0.5rem;"
+          hx-post="/packages/<%= encodeURIComponent(pkg.name) %>/source/check-now"
+          hx-target="#last-checked-<%= pkg.name %>"
+          hx-swap="innerHTML"
+          hx-on::after-request="setTimeout(() => window.location.reload(), 8000)">
+          Check Now
+        </button>
+      </div>
+    </div>
+    <% } else { %>
+    <%/* -- No source state -- */%>
+    <div x-show="!showForm">
+      <p class="text-muted" style="margin-bottom:0.75rem;">
+        No upstream source configured. The system can't check for newer versions until a source is added.
+      </p>
+      <p class="text-muted" style="font-size:0.8rem;">
+        <strong>Tip:</strong> If the package name doesn't match the repo/project name upstream
+        (e.g. <code>allegro4</code> -> <code>liballeg/allegro5</code>), use the Tag Pattern field
+        to filter only the relevant major version.
+      </p>
+    </div>
+    <% } %>
+
+    <%/* -- Add / Edit form -- */%>
+    <form id="source-form-<%= pkg.name %>" x-show="showForm" x-cloak style="margin-top: 0.75rem;">
+      <%/* Type selector */%>
+      <div class="form-group">
+        <label class="form-label">Source Type <span class="req">*</span></label>
+        <select name="source_type" x-model="type" class="form-select">
+          <option value="github" <%- initType === 'github' ? 'selected' : '' %>>GitHub - GitHub.com releases or tags</option>
+          <option value="gitlab" <%- initType === 'gitlab' ? 'selected' : '' %>>GitLab - GitLab.com or self-hosted</option>
+          <option value="gnu" <%- initType === 'gnu' ? 'selected' : '' %>>GNU FTP - ftp.gnu.org packages</option>
+          <option value="kde" <%- initType === 'kde' ? 'selected' : '' %>>KDE Invent - invent.kde.org components</option>
+          <option value="pypi" <%- initType === 'pypi' ? 'selected' : '' %>>PyPI - Python Package Index</option>
+          <option value="generic" <%- initType === 'generic' ? 'selected' : '' %>>Generic URL - parse version from a web page</option>
+        </select>
+      </div>
+
+      <%/* GitHub fields */%>
+      <div x-show="type === 'github'" <%- initType !== 'github' ? 'style="display:none"' : '' %>>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Owner <span class="req">*</span></label>
+            <input type="text" name="owner" x-model="owner" class="form-input"
+              placeholder="e.g. liballeg" autocomplete="off">
+            <div class="form-hint">GitHub username or organisation</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Repository <span class="req">*</span></label>
+            <input type="text" name="repo" x-model="repo" class="form-input"
+              placeholder="e.g. allegro5" autocomplete="off">
+            <div class="form-hint">Exact repo name on GitHub</div>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Tag Prefix <span style="color:var(--text-muted);font-weight:normal;">(optional)</span></label>
+            <input type="text" name="tag_prefix" x-model="tagPrefix" class="form-input"
+              placeholder="e.g. allegro-" autocomplete="off">
+            <div class="form-hint">Strip this prefix before extracting the version. Leave blank if tags are plain version numbers or start with <code>v</code> (stripped automatically).</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Tag Pattern <span style="color:var(--text-muted);font-weight:normal;">(optional)</span></label>
+            <input type="text" name="tag_pattern" x-model="tagPattern" class="form-input"
+              placeholder="e.g. ^(4\.\d+\.\d+)" autocomplete="off">
+            <div class="form-hint">Regex with one capture group to extract the version string. Use this when a repo contains releases for multiple major versions - e.g. <code>^(4\.\d+\.\d+)</code> only surfaces 4.x tags from a repo that has both 4.x and 5.x releases.</div>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Asset Pattern <span style="color:var(--text-muted);font-weight:normal;">(optional)</span></label>
+            <input type="text" name="asset_pattern" x-model="assetPattern" class="form-input"
+              placeholder="e.g. MyApp-stable-([0-9.]+)-x86_64" autocomplete="off">
+            <div class="form-hint">Regex with one capture group to extract the version from release asset filenames. When set, version is read from assets instead of tags - useful for repos with rolling tags like <code>continuous-stable</code>.</div>
+          </div>
+        </div>
+      </div>
+
+      <%/* GitLab fields */%>
+      <div x-show="type === 'gitlab'" <%- initType !== 'gitlab' ? 'style="display:none"' : '' %>>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Host <span style="color:var(--text-muted);font-weight:normal;">(optional)</span></label>
+            <input type="text" name="host" x-model="host" class="form-input"
+              placeholder="gitlab.com" autocomplete="off">
+            <div class="form-hint">Hostname only. Defaults to <code>gitlab.com</code>.</div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Project Path <span class="req">*</span></label>
+            <input type="text" name="project_path" x-model="projectPath" class="form-input"
+              placeholder="e.g. inkscape/inkscape" autocomplete="off">
+            <div class="form-hint">Owner/repo path as it appears in the GitLab URL</div>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Tag Prefix <span style="color:var(--text-muted);font-weight:normal;">(optional)</span></label>
+            <input type="text" name="tag_prefix" x-model="tagPrefix" class="form-input" placeholder="" autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Tag Pattern <span style="color:var(--text-muted);font-weight:normal;">(optional)</span></label>
+            <input type="text" name="tag_pattern" x-model="tagPattern" class="form-input" placeholder="" autocomplete="off">
+          </div>
+        </div>
+      </div>
+
+      <%/* GNU / PyPI fields - shared "Package name" input */%>
+      <div x-show="type === 'gnu' || type === 'pypi' || type === 'kde'" <%- !['gnu','pypi','kde'].includes(initType) ? 'style="display:none"' : '' %>>
+        <div class="form-group">
+          <label class="form-label" x-text="type === 'kde' ? 'Component Name' : 'Package Name'"></label>
+          <input type="text" name="package" x-model="packageName" class="form-input"
+            placeholder="e.g. gcc" autocomplete="off">
+          <div class="form-hint" x-show="type === 'gnu'">Exact package name on <code>ftp.gnu.org/gnu/</code></div>
+          <div class="form-hint" x-show="type === 'kde'">Component name on <code>invent.kde.org</code></div>
+          <div class="form-hint" x-show="type === 'pypi'">Package name exactly as it appears on PyPI</div>
+        </div>
+      </div>
+
+      <%/* Generic URL */%>
+      <div x-show="type === 'generic'" <%- initType !== 'generic' ? 'style="display:none"' : '' %>>
+        <div class="form-group">
+          <label class="form-label">URL <span class="req">*</span></label>
+          <input type="text" name="url" x-model="url" class="form-input"
+            placeholder="https://example.com/releases" autocomplete="off">
+          <div class="form-hint">A page that lists version strings the worker can scrape</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Version Pattern <span style="color:var(--text-muted);font-weight:normal;">(optional)</span></label>
+          <input type="text" name="pattern" x-model="pattern" class="form-input"
+            placeholder="e.g. package-(\d+\.\d+\.\d+)\.tar" autocomplete="off">
+          <div class="form-hint">Regex with one capture group extracting the version. Defaults to any <code>X.Y.Z</code> found on the page.</div>
+        </div>
+      </div>
+
+      <div id="source-test-results-<%= pkg.name %>"></div>
+
+      <div class="form-actions">
+        <% if (type_hint = 'github') { %><%/* always true - just renders the buttons with correct hx-include */%><% } %>
+        <button type="button" class="btn" data-help="pkg-source-test"
+          hx-post="/packages/<%= encodeURIComponent(pkg.name) %>/source/test"
+          hx-include="#source-form-<%= pkg.name %>"
+          hx-target="#source-test-results-<%= pkg.name %>"
+          hx-swap="innerHTML"
+          hx-indicator="#test-spinner-<%= pkg.name %>">
+          Test Source
+          <span id="test-spinner-<%= pkg.name %>" class="htmx-indicator" style="font-size:0.75rem;">...</span>
+        </button>
+        <button type="button" class="btn btn-primary" data-help="pkg-source-save"
+          hx-post="/packages/<%= encodeURIComponent(pkg.name) %>/source"
+          hx-include="#source-form-<%= pkg.name %>"
+          hx-target="#source-test-results-<%= pkg.name %>"
+          hx-swap="innerHTML">
+          Save Source
+        </button>
+        <button type="button" class="btn" data-help="pkg-source-cancel" @click="showForm = false" style="margin-left:auto;">Cancel</button>
+      </div>
+    </form>
+
+    <%/* Pin / Defer / Watch actions when source exists */%>
+    <% if (source && !pkg.pinnedAt && !pkg.deferredAt) { %>
+    <div style="margin-top:1rem;padding-top:0.75rem;border-top:1px solid var(--border-secondary);display:flex;gap:1.5rem;align-items:flex-start;flex-wrap:wrap;">
+      <div>
+        <button class="btn" style="font-size:0.75rem;opacity:0.6;"
+          hx-post="/packages/<%= encodeURIComponent(pkg.name) %>/pin"
+          hx-on::after-request="window.location.reload()">
+          Pin
+        </button>
+        <span class="form-hint" style="display:inline;margin-left:0.4rem;">Exclude permanently</span>
+      </div>
+      <div x-data="{show: false, reason: '', duration: '30', customDays: '30'}">
+        <div x-show="!show">
+          <button class="btn" style="font-size:0.75rem;opacity:0.6;" @click="show = true">
+            Defer
+          </button>
+          <span class="form-hint" style="display:inline;margin-left:0.4rem;">Exclude temporarily, monitoring continues</span>
+        </div>
+        <div x-show="show" x-cloak style="display:flex;flex-direction:column;gap:0.5rem;width:100%;max-width:600px;">
+          <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">
+            <label style="font-size:0.8rem;color:var(--text-muted);">Defer for:</label>
+            <select x-model="duration" class="filter-select" style="font-size:0.8rem;">
+              <option value="7">1 week (7 days)</option>
+              <option value="30">1 month (30 days)</option>
+              <option value="90">3 months (90 days)</option>
+              <option value="custom">Custom...</option>
+            </select>
+            <template x-if="duration === 'custom'">
+              <input type="number" x-model="customDays" min="1" max="3650" class="form-input" style="width:80px;font-size:0.8rem;padding:0.25rem 0.5rem;" placeholder="days">
+            </template>
+          </div>
+          <input type="hidden" name="defer-days" :value="duration === 'custom' ? customDays : duration">
+          <textarea x-model="reason" name="defer-reason" class="form-input" rows="3" style="font-size:0.85rem;resize:vertical;" placeholder="Reason (e.g. ABI break - needs rebuild cascade. Revisit after Phase 17.)"></textarea>
+          <div style="display:flex;gap:0.5rem;">
+            <button class="btn btn-primary" style="font-size:0.75rem;"
+              hx-post="/packages/<%= encodeURIComponent(pkg.name) %>/defer"
+              hx-include="[name='defer-reason'],[name='defer-days']"
+              hx-on::after-request="window.location.reload()">
+              Confirm Defer
+            </button>
+            <button class="btn" style="font-size:0.75rem;" @click.prevent="show = false; reason = ''; duration = '30'">Cancel</button>
+          </div>
+        </div>
+      </div>
+      <% if (!pkg.watchedAt) { %>
+      <div>
+        <button class="btn" data-help="pkg-watch" style="font-size:0.75rem;opacity:0.6;"
+          hx-post="/packages/<%= encodeURIComponent(pkg.name) %>/watch"
+          hx-on::after-request="window.location.reload()">
+          Watch
+        </button>
+        <span class="form-hint" style="display:inline;margin-left:0.4rem;">Email on new upstream version</span>
+      </div>
+      <% } %>
+    </div>
+    <% } %>
+
+    <%/* Watch button when source exists but package is pinned or deferred */%>
+    <% if (source && (pkg.pinnedAt || pkg.deferredAt) && !pkg.watchedAt) { %>
+    <div style="margin-top:1rem;padding-top:0.75rem;border-top:1px solid var(--border-secondary);">
+      <button class="btn" data-help="pkg-watch" style="font-size:0.75rem;opacity:0.6;"
+        hx-post="/packages/<%= encodeURIComponent(pkg.name) %>/watch"
+        hx-on::after-request="window.location.reload()">
+        Watch
+      </button>
+      <span class="form-hint" style="display:inline;margin-left:0.4rem;">Email on new upstream version</span>
+    </div>
+    <% } %>
+  </div>
+</div>
+
+<% if (upstreamReleases && upstreamReleases.length) { %>
+<div class="card" data-help="pkg-available-versions" style="margin-bottom: 1rem;">
+  <div class="card-header" data-tooltip="All versions discovered by the monitoring workers for this package. 'newer' means it's a higher version than what's installed.">Upstream Releases</div>
+  <table class="data-table" style="border: none; border-radius: 0;">
+    <thead>
+      <tr>
+        <th data-help="pkg-release-version">Version</th>
+        <th data-help="pkg-release-date">Released</th>
+        <th data-help="pkg-release-status">Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% upstreamReleases.forEach(function(rel, idx) { %>
+        <tr>
+          <td class="mono">
+            <% if (rel.releaseUrl) { %>
+              <a href="<%= rel.releaseUrl %>" target="_blank" rel="noopener"><%= rel.version %></a>
+            <% } else { %>
+              <%= rel.version %>
+            <% } %>
+          </td>
+          <td class="text-secondary"><%= rel.releaseDate ? fmtDate(rel.releaseDate) : 'Unknown' %></td>
+          <td>
+            <% if (rel.isNewer) { %>
+              <span class="badge badge-outdated">newer</span>
+            <% } else { %>
+              <span class="badge badge-current">current</span>
+            <% } %>
+            <% if (rel.releaseNotes) { %>
+              <button class="btn btn-sm" data-help="pkg-release-notes" style="font-size:0.65rem;padding:0.1rem 0.4rem;margin-left:0.4rem;vertical-align:middle;"
+                onclick="var el=document.getElementById('rn-<%= idx %>');el.style.display=el.style.display==='none'?'table-row':'none'">
+                Notes
+              </button>
+            <% } %>
+          </td>
+        </tr>
+        <% if (rel.releaseNotes) { %>
+        <tr id="rn-<%= idx %>" style="display:none;">
+          <td colspan="3" style="padding:0.5rem 1rem;background:var(--bg-secondary);font-size:0.85rem;white-space:pre-wrap;word-break:break-word;max-height:300px;overflow-y:auto;"><%= rel.releaseNotes %></td>
+        </tr>
+        <% } %>
+      <% }) %>
+    </tbody>
+  </table>
+</div>
+<% } %>
+
+<% if (versionHistory && versionHistory.length) { %>
+<div class="card" style="margin-bottom: 1rem;">
+  <div class="card-header" data-tooltip="Each row is a manifest push - when pacman synced your installed packages to this server and this package changed.">Version History</div>
+  <table class="data-table" style="border: none; border-radius: 0;">
+    <thead>
+      <tr>
+        <th data-help="pkg-history-date">Date</th>
+        <th data-help="pkg-history-event">Event</th>
+        <th data-help="pkg-history-version-change">Version Change</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% versionHistory.forEach(function(h) { %>
+        <tr>
+          <td class="text-secondary"><%= fmtDateTime(h.date) %></td>
+          <td>
+            <% if (h.event === 'updated') { %>
+              <span class="badge badge-accent" data-help="pkg-history-updated">updated</span>
+            <% } else if (h.event === 'added') { %>
+              <span class="badge badge-new" data-help="pkg-history-added">added</span>
+            <% } else { %>
+              <span class="badge badge-removed" data-help="pkg-history-removed">removed</span>
+            <% } %>
+          </td>
+          <td class="mono">
+            <% if (h.from && h.to) { %>
+              <span class="text-muted"><%= h.from %></span> -> <span><%= h.to %></span>
+            <% } else { %>
+              <span class="text-muted">&mdash;</span>
+            <% } %>
+          </td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</div>
+<% } %>
+
+<% if (typeof kbDocs !== 'undefined' && kbDocs.length > 0) { %>
+<div class="card" style="margin-bottom: 1rem;">
+  <div class="card-header">
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:0.3rem;"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+    Knowledge Base
+  </div>
+  <div class="card-body">
+    <ul style="list-style:none;display:flex;flex-direction:column;gap:0.4rem;">
+      <% kbDocs.forEach(function(doc) { %>
+        <li>
+          <a href="/kb/<%= doc.slug %>"><%= doc.title %></a>
+          <span class="text-muted text-sm" style="margin-left:0.5rem;"><%= fmtDate(doc.updated_at) %></span>
+        </li>
+      <% }) %>
+    </ul>
+  </div>
+</div>
+<% } %>
+
+<% if (cves && cves.length) { %>
+<% const openCves = cves.filter(function(c) { return c.status === 'open'; }); %>
+<div class="card" data-help="pkg-cves">
+  <div class="card-header" style="display:flex;align-items:center;gap:0.5rem;" data-tooltip="CVEs linked to this package. May include CVEs that are fixed in your current version if no fixedVersion was recorded by NVD.">
+    Known Vulnerabilities
+    <% if (pkg.pinnedAt && openCves.length > 0) { %>
+      <button class="btn btn-sm" style="margin-left:auto;font-size:0.72rem;padding:0.2rem 0.65rem;"
+        hx-post="/packages/<%= encodeURIComponent(pkg.name) %>/cves/dismiss-all"
+        hx-vals='{"reason":"Package pinned - intentionally not updating"}'
+        hx-confirm="Dismiss all <%= openCves.length %> open CVE<%= openCves.length !== 1 ? 's' : '' %> for <%= pkg.name %>? They will be marked dismissed with reason 'Package pinned'."
+        hx-on::after-request="window.location.reload()">
+        Dismiss all (<%= openCves.length %> open)
+      </button>
+    <% } %>
+  </div>
+  <table class="data-table" style="border: none; border-radius: 0;">
+    <thead>
+      <tr>
+        <th>CVE</th>
+        <th>Severity</th>
+        <th>CVSS</th>
+        <th>Fixed In</th>
+        <th>Status</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <% cves.forEach(function(cve) { %>
+        <tr>
+          <td><a href="/cves/<%= cve.cveId %>"><%= cve.cveId %></a></td>
+          <td><span class="badge badge-<%= cve.severity %>"><%= cve.severity %></span></td>
+          <td><%= cve.cvssScore ?? 'N/A' %></td>
+          <td style="font-family: var(--font-mono); font-size: 0.8em;"><%= cve.fixedVersion || '-' %></td>
+          <td>
+            <% if (cve.status === 'open') { %>
+              <span class="badge badge-critical">open</span>
+            <% } else { %>
+              <span class="badge badge-removed"><%= cve.status %></span>
+            <% } %>
+          </td>
+          <td>
+            <% if (cve.status === 'open') { %>
+              <div x-data="{ showDismiss: false }">
+                <button @click="showDismiss = !showDismiss" class="btn btn-sm" data-help="pkg-cve-dismiss-toggle" style="font-size:0.7rem;padding:0.15rem 0.5rem;">Dismiss</button>
+                <div x-show="showDismiss" x-cloak data-help="pkg-cve-dismiss-modal" style="position:absolute;right:0;z-index:10;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:4px;padding:0.5rem;margin-top:0.25rem;min-width:280px;box-shadow:0 4px 12px rgba(0,0,0,0.3);">
+                  <form hx-post="/cves/<%= cve.cveId %>/dismiss" hx-on::after-request="window.location.reload()" style="display:flex;flex-direction:column;gap:0.4rem;">
+                    <select name="reason" required class="filter-select" data-help="pkg-cve-dismiss-reason" style="width:100%;font-size:0.8rem;">
+                      <option value="">Reason...</option>
+                      <option value="Not applicable">Not applicable</option>
+                      <option value="False positive">False positive</option>
+                      <option value="Mitigated by configuration">Mitigated by config</option>
+                      <option value="Low risk - accepted">Low risk - accepted</option>
+                    </select>
+                    <textarea name="comment" rows="2" data-help="pkg-cve-dismiss-comment" placeholder="Comment (optional)..." style="width:100%;font-size:0.8rem;background:var(--bg-primary);color:var(--text-primary);border:1px solid var(--border-color);border-radius:3px;padding:0.3rem;font-family:inherit;resize:vertical;"></textarea>
+                    <div style="display:flex;gap:0.3rem;justify-content:flex-end;">
+                      <button type="button" @click="showDismiss = false" class="btn btn-sm" data-help="pkg-cve-dismiss-cancel" style="font-size:0.7rem;padding:0.15rem 0.5rem;">Cancel</button>
+                      <button type="submit" class="btn-danger btn-sm" data-help="pkg-cve-dismiss-confirm" style="font-size:0.7rem;padding:0.15rem 0.5rem;">Dismiss</button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            <% } %>
+          </td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</div>
+<% } %>
+
+<%/* Defer modal (shared - used by Defer buttons that call openDeferModal()) */%>
+<dialog id="defer-modal" data-help="pkg-defer-modal" style="border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);padding:1.5rem;min-width:320px;max-width:480px;">
+  <h3 style="margin:0 0 1rem;">Defer Package</h3>
+  <div style="display:flex;flex-direction:column;gap:0.75rem;">
+    <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">
+      <label data-help="pkg-defer-modal-duration-label" style="font-size:0.85rem;color:var(--text-muted);">Defer for:</label>
+      <select id="defer-modal-duration" class="filter-select" data-help="pkg-defer-modal-duration" style="font-size:0.85rem;" onchange="document.getElementById('defer-modal-custom-wrap').style.display=this.value==='custom'?'flex':'none'">
+        <option value="7">1 week (7 days)</option>
+        <option value="30" selected>1 month (30 days)</option>
+        <option value="90">3 months (90 days)</option>
+        <option value="custom">Custom...</option>
+      </select>
+      <div id="defer-modal-custom-wrap" style="display:none;">
+        <input id="defer-modal-custom-days" data-help="pkg-defer-modal-custom-days" type="number" min="1" max="3650" value="30" class="form-input" style="width:80px;font-size:0.85rem;padding:0.25rem 0.5rem;" placeholder="days">
+      </div>
+    </div>
+    <textarea id="defer-modal-reason" class="form-input" data-help="pkg-defer-modal-reason" rows="3" style="font-size:0.85rem;resize:vertical;" placeholder="Reason (optional)"></textarea>
+    <div style="display:flex;gap:0.5rem;justify-content:flex-end;">
+      <button class="btn" data-help="pkg-defer-modal-cancel" onclick="document.getElementById('defer-modal').close()">Cancel</button>
+      <button class="btn btn-primary" data-help="pkg-defer-modal-confirm" onclick="submitDeferModal()">Confirm Defer</button>
+    </div>
+  </div>
+</dialog>
+<script>
+let _deferModalPkg = '';
+function openDeferModal(pkgName) {
+  _deferModalPkg = pkgName;
+  document.getElementById('defer-modal-reason').value = '';
+  document.getElementById('defer-modal-duration').value = '30';
+  document.getElementById('defer-modal-custom-wrap').style.display = 'none';
+  document.getElementById('defer-modal').showModal();
+}
+function submitDeferModal() {
+  const dur = document.getElementById('defer-modal-duration').value;
+  const days = dur === 'custom' ? document.getElementById('defer-modal-custom-days').value : dur;
+  const reason = document.getElementById('defer-modal-reason').value;
+  htmx.ajax('POST', '/packages/' + encodeURIComponent(_deferModalPkg) + '/defer', {
+    values: { 'defer-days': days, 'defer-reason': reason }
+  });
+  document.getElementById('defer-modal').close();
+  setTimeout(() => window.location.reload(), 400);
+}
+</script>

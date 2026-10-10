@@ -1,0 +1,43 @@
+<%/* -- Staleness Trend (ECharts line chart) ---------------------------------- */%>
+<% if (stalenessTrend && stalenessTrend.length > 0) { %>
+<div class="card" data-help="overview-staleness-trend">
+  <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;">
+    <a href="/updates" style="color:inherit;text-decoration:none;">Staleness Trend</a>
+    <span class="text-muted text-sm" style="font-weight:400;">last <%= stalenessTrend.length %> days</span>
+  </div>
+  <div class="card-body" style="padding:0.4rem 0.6rem;">
+    <div id="staleness-trend-chart" style="width:100%;height:180px;"></div>
+  </div>
+</div>
+<script>
+(function() {
+  var el = document.getElementById('staleness-trend-chart');
+  if (!el || typeof echarts === 'undefined') return;
+  var data = <%- JSON.stringify(stalenessTrend.map(function(s) {
+    return { d: s.snapshotDate, out: s.packagesOutdated, avg: s.avgScore ? parseFloat(Number(s.avgScore).toFixed(1)) : 0, cves: s.openCves };
+  })) %>;
+  var chart = echarts.init(el, null, { renderer: 'canvas' });
+  chart.setOption({
+    tooltip: { trigger: 'axis', backgroundColor: '#1c2128', borderColor: '#30363d', textStyle: { color: '#e6edf3', fontSize: 12 } },
+    legend: { bottom: 0, textStyle: { color: '#8b949e', fontSize: 11 }, itemWidth: 14, itemHeight: 8 },
+    grid: { top: 10, right: 12, bottom: 32, left: 42 },
+    xAxis: {
+      type: 'category',
+      data: data.map(function(d) { var p = d.d.split('T')[0].split('-'); return p[1] + '/' + p[2]; }),
+      axisLine: { lineStyle: { color: '#30363d' } },
+      axisLabel: { color: '#636c76', fontSize: 10 },
+    },
+    yAxis: [
+      { type: 'value', splitLine: { lineStyle: { color: '#21262d' } }, axisLabel: { color: '#636c76', fontSize: 10 } },
+      { type: 'value', splitLine: { show: false }, axisLabel: { color: '#636c76', fontSize: 10 } },
+    ],
+    series: [
+      { name: 'Outdated', type: 'line', data: data.map(function(d) { return d.out; }), smooth: true, symbol: 'none', lineStyle: { width: 2, color: '#d29922' }, itemStyle: { color: '#d29922' } },
+      { name: 'Avg Score', type: 'line', data: data.map(function(d) { return d.avg; }), smooth: true, symbol: 'none', lineStyle: { width: 2, color: '#58a6ff' }, itemStyle: { color: '#58a6ff' }, yAxisIndex: 1 },
+      { name: 'Open CVEs', type: 'line', data: data.map(function(d) { return d.cves; }), smooth: true, symbol: 'none', lineStyle: { width: 2, color: '#f85149' }, itemStyle: { color: '#f85149' } },
+    ],
+  });
+  window.addEventListener('resize', function() { chart.resize(); });
+})();
+</script>
+<% } %>

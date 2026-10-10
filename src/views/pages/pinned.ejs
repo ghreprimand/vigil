@@ -1,0 +1,41 @@
+
+<% if (packages.length === 0) { %>
+  <p class="text-muted">No packages are currently pinned.</p>
+<% } else { %>
+<table>
+  <thead>
+    <tr>
+      <th data-help="pinned-col-package">Package</th>
+      <th data-help="pinned-col-version">Version</th>
+      <th data-help="pinned-col-reason">Reason</th>
+      <th data-help="pinned-col-pinned-at">Pinned At</th>
+      <th data-help="pinned-col-actions">Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% for (const pkg of packages) { %>
+    <tr>
+      <td><a href="/packages/<%= pkg.name %>"><%= pkg.name %></a></td>
+      <td><code><%= pkg.version %></code></td>
+      <td><%= pkg.pinReason || '-' %></td>
+      <td><% if (pkg.pinnedAt) { %><time class="local-date" datetime="<%= new Date(pkg.pinnedAt).toISOString() %>"></time><% } else { %>-<% } %></td>
+      <td>
+        <button
+          hx-post="/packages/<%= pkg.name %>/unpin"
+          hx-swap="outerHTML"
+          hx-target="closest tr"
+          class="btn-small"
+          data-help="pinned-unpin"
+        >Unpin</button>
+      </td>
+    </tr>
+    <% } %>
+  </tbody>
+</table>
+<% } %>
+
+<script>
+document.querySelectorAll('time.local-date').forEach(function(el) {
+  el.textContent = new Date(el.getAttribute('datetime')).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+});
+</script>

@@ -1,0 +1,66 @@
+<div class="breadcrumbs">
+  <a href="/advisories">Advisories</a>
+  <span class="sep">/</span>
+  <span><%= advisory ? 'Edit' : 'New Advisory' %></span>
+</div>
+
+<div class="page-header">
+  <h1><%= advisory ? 'Edit Advisory' : 'New Advisory' %></h1>
+</div>
+
+<form method="POST" action="<%= advisory ? '/advisories/' + advisory.id : '/advisories' %>">
+  <div class="card" style="margin-bottom:1rem;">
+    <div class="card-body">
+      <div class="form-group">
+        <label class="form-label" data-help="advisory-form-title-label">Title <span class="req">*</span></label>
+        <input type="text" name="title" class="form-input" data-help="advisory-form-title-input" required
+          value="<%= advisory ? advisory.title : '' %>"
+          placeholder="e.g. GLib 2.84 upgrade breaks a dependent application">
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" data-help="advisory-form-severity-label">Severity</label>
+          <select name="severity" class="form-select" data-help="advisory-form-severity-select">
+            <option value="info" <%= advisory && advisory.severity === 'info' ? 'selected' : (!advisory ? 'selected' : '') %>>Info</option>
+            <option value="warning" <%= advisory && advisory.severity === 'warning' ? 'selected' : '' %>>Warning</option>
+            <option value="critical" <%= advisory && advisory.severity === 'critical' ? 'selected' : '' %>>Critical</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" data-help="advisory-form-kb-label">KB Article <span style="color:var(--text-muted);font-weight:normal;">(optional)</span></label>
+          <select name="kb_document_id" class="form-select" data-help="advisory-form-kb-select">
+            <option value="">None</option>
+            <% kbDocs.forEach(function(doc) { %>
+              <option value="<%= doc.id %>" <%= advisory && advisory.kbDocumentId === doc.id ? 'selected' : '' %>><%= doc.title %></option>
+            <% }) %>
+          </select>
+          <div class="form-hint" data-help="advisory-form-kb-hint">Link a KB article for full details. The article content serves as the advisory description.</div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" data-help="advisory-form-description-label">Note <span style="color:var(--text-muted);font-weight:normal;">(optional, short context)</span></label>
+        <textarea name="description" class="form-input" data-help="advisory-form-description-textarea" rows="3"
+          style="font-family:var(--font-mono);font-size:0.85rem;resize:vertical;"
+          placeholder="Optional short note if no KB article is linked..."><%= advisory ? advisory.description : '' %></textarea>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" data-help="advisory-form-packages-label">Affected Packages</label>
+        <select name="packages" class="form-select" data-help="advisory-form-packages-select" multiple size="8"
+          style="font-family:var(--font-mono);font-size:0.85rem;">
+          <% allPackages.forEach(function(pkg) { %>
+            <option value="<%= pkg.id %>" <%= linkedPackageIds.includes(pkg.id) ? 'selected' : '' %>><%= pkg.name %></option>
+          <% }) %>
+        </select>
+        <div class="form-hint" data-help="advisory-form-packages-hint">Hold Ctrl/Cmd to select multiple. These packages will show the advisory banner on their detail page.</div>
+      </div>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary" data-help="advisory-form-submit"><%= advisory ? 'Save Changes' : 'Create Advisory' %></button>
+        <a href="<%= advisory ? '/advisories/' + advisory.id : '/advisories' %>" class="btn" data-help="advisory-form-cancel">Cancel</a>
+      </div>
+    </div>
+  </div>
+</form>

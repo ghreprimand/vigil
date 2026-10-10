@@ -1,0 +1,26 @@
+<div class="card">
+  <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;">
+    <a href="/updates" style="color:inherit;text-decoration:none;" data-help="overview-most-outdated">Most Outdated</a>
+    <span class="text-muted text-sm" style="font-weight:400;">by staleness</span>
+  </div>
+  <% if (mostOutdated.length === 0) { %>
+    <div class="empty-state"><p>All packages are up to date.</p></div>
+  <% } else { %>
+    <div class="card-body" style="padding:0;">
+      <table class="data-table" style="border:none;border-radius:0;">
+        <tbody>
+          <% mostOutdated.forEach(function(pkg) { %>
+            <tr>
+              <td class="text-sm" style="font-weight:500;"><a href="/packages/<%= encodeURIComponent(pkg.name) %>"><%= pkg.name %></a></td>
+              <td class="text-sm text-muted"><%= pkg.version %></td>
+              <td class="text-sm" style="text-align:right;white-space:nowrap;">
+                <% if (pkg.daysBehind > 0) { %><span style="color:var(--orange);"><%= pkg.daysBehind %>d behind</span><% } %>
+                <% if (pkg.versionsBehind > 0) { %><span class="text-muted" style="margin-left:0.25rem;"><%= pkg.versionsBehind %>v</span><% } %>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</div>

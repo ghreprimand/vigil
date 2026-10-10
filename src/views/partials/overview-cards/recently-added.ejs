@@ -1,0 +1,25 @@
+<div class="card">
+  <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;">
+    <a href="/packages" style="color:inherit;text-decoration:none;" data-help="overview-recently-added">Recently Added</a>
+    <span class="text-muted text-sm" style="font-weight:400;">last <%= recentPackages.length %> packages</span>
+  </div>
+  <% if (recentPackages.length === 0) { %>
+    <div class="empty-state"><p>No packages yet.</p></div>
+  <% } else { %>
+    <div class="card-body" style="padding:0;">
+      <table class="data-table" style="border:none;border-radius:0;">
+        <tbody>
+          <% recentPackages.forEach(function(pkg) { %>
+            <tr>
+              <td style="width:1%;white-space:nowrap;">
+                <a href="/packages/<%= encodeURIComponent(pkg.name) %>"><%= pkg.name %></a>
+              </td>
+              <td class="text-sm text-muted" style="width:1%;white-space:nowrap;"><%= pkg.version %></td>
+              <td class="text-sm text-muted" style="text-align:right;white-space:nowrap;"><%= fmtDate(pkg.firstSeen) %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</div>

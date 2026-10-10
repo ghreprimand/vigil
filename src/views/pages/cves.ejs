@@ -1,0 +1,235 @@
+<%
+  // Tab strip - remediation first, then unresolved/triage, then archives.
+  const tabs = [
+    { id: 'actionable',   label: 'Fix available', hint: 'confirmed affected and a fixed version/range is known' },
+    { id: 'unfixed',      label: 'No fix yet',     hint: 'confirmed affected, but no fixed version is known yet' },
+    { id: 'needs_triage', label: 'Needs triage', hint: 'name match without confirmed range data' },
+    { id: 'dismissed',    label: 'Dismissed',    hint: 'manually suppressed (reason preserved)' },
+    { id: 'fixed',        label: 'Fixed',        hint: 'auto-resolved or remediated' },
+    { id: 'all',          label: 'All',          hint: 'every linked CVE regardless of status' },
+  ];
+%>
+
+<nav class="cve-tabs" role="tablist" aria-label="CVE filter tabs"
+     style="display:flex; gap:0.25rem; margin-bottom:0.75rem; border-bottom:1px solid var(--border, #2b2b2b); padding-bottom:0.25rem;">
+  <% for (const t of tabs) { %>
+    <a role="tab"
+       href="/cves?tab=<%= t.id %><%= severity ? '&severity=' + severity : '' %><%= query ? '&q=' + encodeURIComponent(query) : '' %>"
+       title="<%= t.hint %>"
+       data-help="cves-tab-<%= t.id %>"
+       aria-selected="<%= tab === t.id ? 'true' : 'false' %>"
+       class="cve-tab<%= tab === t.id ? ' cve-tab--active' : '' %><%= t.id === 'needs_triage' ? ' cve-tab--triage' : '' %>"
+       style="padding:0.4rem 0.8rem; border-radius:6px 6px 0 0; text-decoration:none; font-size:0.9rem;
+              <%= tab === t.id ? 'background:#1f2a44; color:#fff; border:1px solid #324a78; border-bottom-color:transparent;' : 'background:transparent; color:var(--muted, #888);' %>">
+      <%= t.label %>
+      <span style="opacity:0.7; font-variant-numeric:tabular-nums;">(<%= counts[t.id] ?? 0 %>)</span>
+    </a>
+  <% } %>
+</nav>
+
+<% if ((tab === 'actionable' || tab === 'open') && cves.length > 0) { %>
+  <%
+    const actionPackages = new Map();
+    for (const cve of cves) {
+      for (const pkg of (cve.packages || [])) {
+        const current = actionPackages.get(pkg.name) || { count: 0, maxCvss: 0, severities: new Set(), pinned: false };
+        current.count += 1;
+        current.maxCvss = Math.max(current.maxCvss, Number(cve.cvssScore || 0));
+        if (cve.severity) current.severities.add(cve.severity);
+        current.pinned = current.pinned || !!pkg.pinned;
+        actionPackages.set(pkg.name, current);
+      }
+    }
+    const priorityPackages = Array.from(actionPackages.entries())
+      .sort((a, b) => b[1].maxCvss - a[1].maxCvss || b[1].count - a[1].count)
+      .slice(0, 8);
+  %>
+  <section class="cve-action-summary" data-help="cves-action-summary" aria-label="Confirmed CVE package priorities">
+    <div>
+      <div class="cve-action-title">Packages with known fix targets</div>
+      <div class="cve-action-subtitle"><%= cves.length %> CVE<%= cves.length === 1 ? '' : 's' %> across <%= actionPackages.size %> package<%= actionPackages.size === 1 ? '' : 's' %>; update/rebuild when source is available.</div>
+    </div>
+    <div class="cve-action-list">
+      <% for (const [name, info] of priorityPackages) { %>
+        <a class="cve-action-chip" href="/packages/<%= encodeURIComponent(name) %>">
+          <span class="cve-action-name"><%= name %><%= info.pinned ? ' (pinned)' : '' %></span>
+          <span class="cve-action-meta"><%= info.count %> CVE<%= info.count === 1 ? '' : 's' %> . max <%= info.maxCvss ? info.maxCvss.toFixed(1) : 'N/A' %></span>
+        </a>
+      <% } %>
+    </div>
+  </section>
+<% } else if (tab === 'unfixed' && cves.length > 0) { %>
+  <section class="cve-action-summary cve-action-summary--waiting" data-help="cves-unfixed-summary" aria-label="No fix yet summary">
+    <div>
+      <div class="cve-action-title">Current packages, no known fixed version</div>
+      <div class="cve-action-subtitle">These are real current-version advisories. There is usually nothing to update yet; monitor upstream, apply mitigations, or dismiss with a documented reason if not applicable.</div>
+    </div>
+  </section>
+<% } else if (tab === 'needs_triage' && cves.length > 0) { %>
+  <section class="cve-action-summary cve-action-summary--triage" data-help="cves-triage-summary" aria-label="Needs triage summary">
+    <div>
+      <div class="cve-action-title">Unconfirmed matches</div>
+      <div class="cve-action-subtitle">These are name or range matches without enough evidence to treat as confirmed exposure.</div>
+    </div>
+  </section>
+<% } %>
+
+<div class="toolbar">
+  <input type="search"
+         class="search-input"
+         name="q"
+         data-help="cves-search"
+         placeholder="Search CVEs..."
+         hx-get="/partials/cve-table"
+         hx-trigger="input changed delay:300ms, search"
+         hx-target="#cve-table"
+         hx-include="[name='severity'],[name='tab']"
+         value="<%= query %>">
+  <select name="severity" class="filter-select" data-help="cves-severity-filter"
+          hx-get="/partials/cve-table"
+          hx-trigger="change"
+          hx-target="#cve-table"
+          hx-include="[name='q'],[name='tab']">
+    <option value="">All severities</option>
+    <option value="critical" <%= severity === 'critical' ? 'selected' : '' %>>Critical</option>
+    <option value="high"     <%= severity === 'high'     ? 'selected' : '' %>>High</option>
+    <option value="medium"   <%= severity === 'medium'   ? 'selected' : '' %>>Medium</option>
+    <option value="low"      <%= severity === 'low'      ? 'selected' : '' %>>Low</option>
+  </select>
+  <input type="hidden" name="tab" value="<%= tab %>">
+</div>
+
+<div class="cve-table-scroll">
+  <div id="cve-table">
+    <%- include('../partials/cve-table.ejs', { cves: cves, tab: tab }) %>
+  </div>
+</div>
+
+<style>
+  .cve-tabs {
+    overflow-x: auto;
+  }
+
+  .cve-tabs .cve-tab {
+    white-space: nowrap;
+  }
+
+  .cve-action-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.9rem;
+    padding: 0.75rem 0.85rem;
+    border: 1px solid rgba(0, 204, 204, 0.28);
+    border-radius: 8px;
+    background: rgba(0, 204, 204, 0.07);
+  }
+
+  .cve-action-summary--triage {
+    border-color: rgba(210, 153, 34, 0.28);
+    background: rgba(210, 153, 34, 0.08);
+  }
+
+  .cve-action-summary--waiting {
+    border-color: rgba(88, 166, 255, 0.28);
+    background: rgba(88, 166, 255, 0.08);
+  }
+
+  .cve-action-title {
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+  }
+
+  .cve-action-subtitle {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    margin-top: 0.1rem;
+  }
+
+  .cve-action-list {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 0.45rem;
+  }
+
+  .cve-action-chip {
+    display: inline-flex;
+    flex-direction: column;
+    gap: 0.05rem;
+    min-width: 92px;
+    padding: 0.35rem 0.55rem;
+    border: 1px solid var(--border-primary);
+    border-radius: 6px;
+    background: var(--bg-input);
+    color: var(--text-primary);
+  }
+
+  .cve-action-chip:hover {
+    border-color: var(--accent);
+    color: var(--text-primary);
+  }
+
+  .cve-action-name {
+    font-weight: 700;
+    font-size: 0.82rem;
+  }
+
+  .cve-action-meta {
+    color: var(--text-muted);
+    font-size: 0.72rem;
+    white-space: nowrap;
+  }
+
+  .cve-table-scroll {
+    width: 100%;
+    overflow-x: auto;
+    padding-bottom: 0.25rem;
+  }
+
+  .cve-table {
+    table-layout: fixed;
+    min-width: 1040px;
+  }
+
+  .cve-table th:nth-child(1),
+  .cve-table td:nth-child(1) { width: 145px; }
+  .cve-table th:nth-child(2),
+  .cve-table td:nth-child(2) { width: 108px; }
+  .cve-table th:nth-child(3),
+  .cve-table td:nth-child(3) { width: 92px; }
+  .cve-table th:nth-child(4),
+  .cve-table td:nth-child(4) { width: 62px; }
+  .cve-table th:nth-child(5),
+  .cve-table td:nth-child(5) { width: 84px; }
+  .cve-table th:nth-child(7),
+  .cve-table td:nth-child(7) { width: 112px; }
+  .cve-table th:nth-child(8),
+  .cve-table td:nth-child(8) { width: 78px; }
+  .cve-table th:nth-child(9),
+  .cve-table td:nth-child(9) { width: 92px; }
+
+  .cve-table td {
+    overflow-wrap: anywhere;
+  }
+
+  .cve-range {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    line-height: 1.35;
+    opacity: 0.85;
+  }
+
+  @media (max-width: 760px) {
+    .cve-action-summary {
+      align-items: stretch;
+      flex-direction: column;
+    }
+
+    .cve-action-list {
+      justify-content: flex-start;
+    }
+  }
+</style>

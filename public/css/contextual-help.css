@@ -1,0 +1,199 @@
+/* - Contextual Help System - */
+
+/* "?" toggle button - positioned in the nav bar */
+.help-toggle {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 50%;
+  border: 2px solid var(--accent, #ff8c00);
+  background: var(--bg-secondary, #161b22);
+  color: var(--accent, #ff8c00);
+  font-size: 1.2rem;
+  font-weight: 700;
+  cursor: pointer;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+.help-toggle:hover {
+  background: var(--accent, #ff8c00);
+  color: var(--bg-primary, #0d1117);
+  transform: scale(1.1);
+}
+.help-toggle.active {
+  background: var(--accent, #ff8c00);
+  color: var(--bg-primary, #0d1117);
+  box-shadow: 0 0 12px rgba(255,140,0,0.5);
+}
+
+/* Inspect mode banner */
+.help-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  background: linear-gradient(90deg, rgba(255,140,0,0.15), rgba(255,140,0,0.05));
+  border-bottom: 1px solid var(--accent, #ff8c00);
+  color: var(--accent, #ff8c00);
+  text-align: center;
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  display: none;
+  backdrop-filter: blur(8px);
+}
+.help-banner kbd {
+  background: rgba(255,140,0,0.2);
+  border: 1px solid rgba(255,140,0,0.4);
+  border-radius: 3px;
+  padding: 0.1rem 0.4rem;
+  font-size: 0.75rem;
+  font-family: inherit;
+}
+body.help-mode .help-banner { display: block; }
+
+/* Inspect mode: dim the page slightly */
+body.help-mode .container {
+  pointer-events: none;
+}
+body.help-mode [data-help] {
+  pointer-events: auto;
+  cursor: help;
+  position: relative;
+}
+
+/* Highlight helpable elements on hover - innermost wins */
+body.help-mode [data-help]:hover {
+  outline: 2px dashed var(--accent, #ff8c00) !important;
+  outline-offset: 3px;
+  background-color: rgba(255,140,0,0.06) !important;
+  border-radius: 4px;
+}
+body.help-mode [data-help]:hover [data-help] {
+  outline: none !important;
+  background-color: transparent !important;
+}
+body.help-mode [data-help] [data-help]:hover {
+  outline: 2px dashed var(--accent, #ff8c00) !important;
+  background-color: rgba(255,140,0,0.06) !important;
+}
+
+/* Subtle pulse on all helpable elements in help mode */
+body.help-mode [data-help] {
+  transition: outline 0.15s, background-color 0.15s;
+}
+
+/* - Help Popover - */
+
+.help-popover {
+  position: fixed;
+  z-index: 10001;
+  max-width: 420px;
+  min-width: 280px;
+  background: var(--bg-secondary, #161b22);
+  border: 1px solid var(--border, #30363d);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,140,0,0.1);
+  padding: 0;
+  animation: helpPopIn 0.15s ease-out;
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+@keyframes helpPopIn {
+  from { opacity: 0; transform: translateY(4px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.help-popover-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.65rem 0.85rem;
+  border-bottom: 1px solid var(--border, #30363d);
+  background: rgba(255,140,0,0.05);
+  border-radius: 8px 8px 0 0;
+}
+
+.help-popover-title {
+  font-weight: 700;
+  color: var(--accent, #ff8c00);
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.help-popover-close {
+  background: none;
+  border: none;
+  color: var(--text-muted, #8b949e);
+  cursor: pointer;
+  font-size: 1.1rem;
+  padding: 0 0.25rem;
+  line-height: 1;
+}
+.help-popover-close:hover {
+  color: var(--text-primary, #e6edf3);
+}
+
+.help-popover-body {
+  padding: 0.75rem 0.85rem;
+  color: var(--text-secondary, #c9d1d9);
+}
+
+.help-popover-body p {
+  margin: 0 0 0.5rem;
+}
+.help-popover-body p:last-child {
+  margin-bottom: 0;
+}
+
+.help-popover-body strong {
+  color: var(--text-primary, #e6edf3);
+}
+
+.help-popover-body code {
+  background: rgba(255,140,0,0.1);
+  padding: 0.1rem 0.35rem;
+  border-radius: 3px;
+  font-size: 0.8rem;
+  color: var(--accent, #ff8c00);
+}
+
+.help-popover-body ul {
+  margin: 0.3rem 0 0.5rem;
+  padding-left: 1.2rem;
+}
+.help-popover-body li {
+  margin-bottom: 0.2rem;
+}
+
+.help-popover-footer {
+  padding: 0.5rem 0.85rem;
+  border-top: 1px solid var(--border, #30363d);
+  text-align: right;
+}
+
+.help-popover-footer a {
+  color: var(--accent, #ff8c00);
+  font-size: 0.8rem;
+  text-decoration: none;
+}
+.help-popover-footer a:hover {
+  text-decoration: underline;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .help-popover {
+    left: 0.5rem !important;
+    right: 0.5rem !important;
+    max-width: none;
+  }
+}

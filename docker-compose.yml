@@ -1,0 +1,30 @@
+services:
+  app:
+    build: .
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOST: 0.0.0.0
+      BASE_URL: ${BASE_URL:-http://localhost:3000}
+      DATABASE_PATH: /app/data/vigil.db
+      API_KEY_ID: ${API_KEY_ID:-vigil-push-1}
+      API_KEY_SECRET: ${API_KEY_SECRET:-replace-with-random-shared-secret}
+      SESSION_SECRET: ${SESSION_SECRET:-replace-with-random-session-secret-at-least-32-bytes}
+      AUTH_MODE: ${AUTH_MODE:-password}
+      AUTH_USERNAME: ${AUTH_USERNAME:-admin}
+      AUTH_PASSWORD_HASH: ${AUTH_PASSWORD_HASH:-scrypt$$N=16384,r=8,p=1$$change-me-salt$$732bf368453209802df2524fad32d8655f7f9699d2efba46cb86d96f2968fd383f5492b99733fa4fe39f14a87adc466e442fee5165764deb3459a8fccdf27865}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      SMTP_ENABLED: ${SMTP_ENABLED:-false}
+      SMTP_HOST: ${SMTP_HOST:-smtp.example.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-vigil@example.com}
+      ALERT_EMAIL: ${ALERT_EMAIL:-admin@example.com}
+    volumes:
+      - vigil-data:/app/data
+    ports:
+      - "3000:3000"
+
+volumes:
+  vigil-data:

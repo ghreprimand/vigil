@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-test-scan:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm test
+
+      # Publish gates. Both scripts print file:line on any match and exit
+      # nonzero to fail the job. Denylist terms come from the
+      # DENYLIST_TERMS secret and are never stored in the repository.
+      - name: Denylist scan
+        shell: bash
+        env:
+          DENYLIST_TERMS: ${{ secrets.DENYLIST_TERMS }}
+        run: bash scripts/scan-denylist.sh .
+
+      - name: Fingerprint scan
+        shell: bash
+        run: bash scripts/scan-fingerprints.sh .

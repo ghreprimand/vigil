@@ -1,0 +1,274 @@
+
+<div style="display:flex;gap:0.75rem;align-items:center;margin-bottom:1rem;flex-wrap:wrap;">
+  <div style="position:relative;max-width:300px;flex:1;">
+    <input id="graph-search" type="text" class="form-input" data-help="graph-search" placeholder="Search package..." style="font-size:0.9rem;width:100%;" autocomplete="off"
+      value="<%= typeof preselect !== 'undefined' ? preselect : '' %>">
+    <div id="suggest-list" data-help="graph-suggestions" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:20;background:var(--bg-secondary);border:1px solid var(--border-color);border-top:none;border-radius:0 0 6px 6px;max-height:250px;overflow-y:auto;box-shadow:0 4px 12px rgba(0,0,0,0.3);"></div>
+  </div>
+  <select id="graph-depth" class="form-input" data-help="graph-depth" style="width:auto;font-size:0.85rem;padding:0.3rem 0.5rem;">
+    <option value="1">1 level</option>
+    <option value="2" selected>2 levels</option>
+    <option value="3">3 levels</option>
+  </select>
+  <button id="graph-btn" class="btn btn-primary btn-sm" onclick="loadGraph()">Show Graph</button>
+  <label style="display:flex;align-items:center;gap:0.35rem;font-size:0.8rem;color:var(--text-muted);cursor:pointer;">
+    <input type="checkbox" id="graph-highlight" data-help="graph-highlight-outdated" onchange="toggleHighlight()"> Highlight outdated
+  </label>
+  <span id="graph-stats" class="text-muted" data-help="graph-stats" style="font-size:0.85rem;"></span>
+</div>
+
+<div class="card" style="min-height:500px;position:relative;">
+  <div id="graph-container" data-help="graph-visualization" style="width:100%;height:600px;overflow:hidden;">
+    <p class="text-muted" style="text-align:center;padding-top:200px;" id="graph-placeholder">
+      Enter a package name to visualize its dependency tree and reverse dependencies.
+    </p>
+  </div>
+</div>
+
+<div style="margin-top:0.75rem;display:flex;gap:1.5rem;flex-wrap:wrap;font-size:0.8rem;color:var(--text-muted);" data-help="graph-legend">
+  <span data-help="graph-legend-selected"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#6495ed;vertical-align:middle;margin-right:4px;"></span> Selected package</span>
+  <span data-help="graph-legend-direct-dep"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#4ade80;vertical-align:middle;margin-right:4px;"></span> Direct dependency</span>
+  <span data-help="graph-legend-indirect-dep"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#22c55e;opacity:0.5;vertical-align:middle;margin-right:4px;"></span> Indirect dependency</span>
+  <span data-help="graph-legend-direct-revdep"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#f59e0b;vertical-align:middle;margin-right:4px;"></span> Direct reverse dep</span>
+  <span data-help="graph-legend-indirect-revdep"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#f59e0b;opacity:0.5;vertical-align:middle;margin-right:4px;"></span> Indirect reverse dep</span>
+  <span data-help="graph-legend-outdated"><span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:#ef4444;vertical-align:middle;margin-right:4px;"></span> Outdated (when highlighted)</span>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+<script>
+var graphSearch = document.getElementById('graph-search');
+var suggestList = document.getElementById('suggest-list');
+var suggestTimer = null;
+var suggestIndex = -1;
+var currentNodes = null; // store for highlight toggling
+
+// Restore last search from localStorage
+if (!graphSearch.value) {
+  var lastPkg = localStorage.getItem('vigil-graph-last');
+  if (lastPkg) graphSearch.value = lastPkg;
+}
+
+graphSearch.addEventListener('keydown', function(e) {
+  var items = suggestList.querySelectorAll('.suggest-item');
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    suggestIndex = Math.min(suggestIndex + 1, items.length - 1);
+    highlightSuggest(items);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    suggestIndex = Math.max(suggestIndex - 1, -1);
+    highlightSuggest(items);
+  } else if (e.key === 'Enter') {
+    if (suggestIndex >= 0 && items[suggestIndex]) {
+      graphSearch.value = items[suggestIndex].textContent;
+      closeSuggest();
+    }
+    loadGraph();
+  } else if (e.key === 'Escape') {
+    closeSuggest();
+  }
+});
+
+graphSearch.addEventListener('input', function() {
+  clearTimeout(suggestTimer);
+  var q = graphSearch.value.trim();
+  if (q.length < 1) { closeSuggest(); return; }
+  suggestTimer = setTimeout(function() { fetchSuggestions(q); }, 150);
+});
+
+graphSearch.addEventListener('blur', function() {
+  setTimeout(closeSuggest, 200);
+});
+
+function fetchSuggestions(q) {
+  fetch('/api/graph/suggest?q=' + encodeURIComponent(q))
+    .then(function(r) { return r.json(); })
+    .then(function(names) {
+      if (names.length === 0) { closeSuggest(); return; }
+      suggestIndex = -1;
+      suggestList.innerHTML = '';
+      names.forEach(function(name) {
+        var div = document.createElement('div');
+        div.className = 'suggest-item';
+        div.style.cssText = 'padding:0.4rem 0.75rem;cursor:pointer;font-size:0.85rem;font-family:var(--font-mono);';
+        div.textContent = name;
+        div.addEventListener('mousedown', function(e) {
+          e.preventDefault();
+          graphSearch.value = name;
+          closeSuggest();
+          loadGraph();
+        });
+        div.addEventListener('mouseenter', function() {
+          div.style.background = 'rgba(100,149,237,0.2)';
+        });
+        div.addEventListener('mouseleave', function() {
+          div.style.background = '';
+        });
+        suggestList.appendChild(div);
+      });
+      suggestList.style.display = 'block';
+    });
+}
+
+function highlightSuggest(items) {
+  items.forEach(function(el, i) {
+    el.style.background = i === suggestIndex ? 'rgba(100,149,237,0.2)' : '';
+  });
+}
+
+function closeSuggest() {
+  suggestList.style.display = 'none';
+  suggestIndex = -1;
+}
+
+function loadGraph() {
+  var name = graphSearch.value.trim();
+  if (!name) return;
+  closeSuggest();
+  var container = document.getElementById('graph-container');
+  var placeholder = document.getElementById('graph-placeholder');
+  var statsEl = document.getElementById('graph-stats');
+  var depth = document.getElementById('graph-depth').value;
+
+  if (placeholder) placeholder.style.display = 'none';
+  container.innerHTML = '';
+  statsEl.textContent = 'Loading...';
+
+  // Save to localStorage
+  localStorage.setItem('vigil-graph-last', name);
+
+  // Update URL without reload
+  history.replaceState(null, '', '/graph?pkg=' + encodeURIComponent(name));
+
+  fetch('/api/graph/' + encodeURIComponent(name) + '?depth=' + depth)
+    .then(function(r) {
+      if (!r.ok) throw new Error('Package not found');
+      return r.json();
+    })
+    .then(function(data) {
+      statsEl.textContent = data.stats.directDeps + ' deps, ' + data.stats.directRevDeps + ' reverse deps, ' + data.stats.totalNodes + ' nodes total';
+      renderGraph(data, container);
+    })
+    .catch(function(err) {
+      container.innerHTML = '<p class="text-muted" style="text-align:center;padding-top:200px;">' + err.message + '</p>';
+      statsEl.textContent = '';
+    });
+}
+
+var highlightEnabled = false;
+
+function toggleHighlight() {
+  highlightEnabled = document.getElementById('graph-highlight').checked;
+  if (!currentNodes) return;
+  var colorMap = {
+    root: '#6495ed',
+    dep: '#4ade80',
+    dep2: 'rgba(34,197,94,0.5)',
+    revdep: '#f59e0b',
+    revdep2: 'rgba(245,158,11,0.5)',
+  };
+  currentNodes.select('circle').attr('fill', function(d) {
+    if (highlightEnabled && d.outdated && d.group !== 'root') return '#ef4444';
+    return colorMap[d.group] || '#999';
+  });
+}
+
+function renderGraph(data, container) {
+  var width = container.clientWidth;
+  var height = 600;
+
+  var colorMap = {
+    root: '#6495ed',
+    dep: '#4ade80',
+    dep2: 'rgba(34,197,94,0.5)',
+    revdep: '#f59e0b',
+    revdep2: 'rgba(245,158,11,0.5)',
+  };
+
+  var svg = d3.select(container).append('svg')
+    .attr('width', width).attr('height', height)
+    .attr('viewBox', [0, 0, width, height]);
+
+  var g = svg.append('g');
+
+  // Zoom
+  svg.call(d3.zoom().scaleExtent([0.2, 4]).on('zoom', function(event) {
+    g.attr('transform', event.transform);
+  }));
+
+  var simulation = d3.forceSimulation(data.nodes)
+    .force('link', d3.forceLink(data.links).id(function(d) { return d.id; }).distance(80))
+    .force('charge', d3.forceManyBody().strength(-200))
+    .force('center', d3.forceCenter(width / 2, height / 2))
+    .force('collision', d3.forceCollide().radius(25));
+
+  // Arrow markers
+  svg.append('defs').append('marker')
+    .attr('id', 'arrow').attr('viewBox', '0 -5 10 10')
+    .attr('refX', 20).attr('refY', 0).attr('markerWidth', 6).attr('markerHeight', 6)
+    .attr('orient', 'auto')
+    .append('path').attr('d', 'M0,-5L10,0L0,5').attr('fill', 'rgba(255,255,255,0.3)');
+
+  var link = g.append('g').selectAll('line')
+    .data(data.links).join('line')
+    .attr('stroke', 'rgba(255,255,255,0.15)')
+    .attr('stroke-width', 1)
+    .attr('marker-end', 'url(#arrow)');
+
+  var node = g.append('g').selectAll('g')
+    .data(data.nodes).join('g')
+    .call(d3.drag()
+      .on('start', function(event, d) { if (!event.active) simulation.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; })
+      .on('drag', function(event, d) { d.fx = event.x; d.fy = event.y; })
+      .on('end', function(event, d) { if (!event.active) simulation.alphaTarget(0); d.fx = null; d.fy = null; })
+    );
+
+  currentNodes = node;
+
+  node.append('circle')
+    .attr('r', function(d) { return d.group === 'root' ? 12 : (d.group === 'dep2' || d.group === 'revdep2') ? 5 : 8; })
+    .attr('fill', function(d) {
+      if (highlightEnabled && d.outdated && d.group !== 'root') return '#ef4444';
+      return colorMap[d.group] || '#999';
+    })
+    .attr('stroke', 'rgba(255,255,255,0.2)')
+    .attr('stroke-width', 1)
+    .style('cursor', 'pointer')
+    .on('click', function(event, d) {
+      graphSearch.value = d.id;
+      loadGraph();
+    });
+
+  // Tooltip with details
+  node.append('title').text(function(d) {
+    var txt = d.id;
+    if (d.score > 0) txt += ' (staleness: ' + d.score + ')';
+    if (d.outdated) txt += ' [outdated]';
+    return txt;
+  });
+
+  // Labels for root + level-1 nodes
+  node.filter(function(d) { return d.group === 'root' || d.group === 'dep' || d.group === 'revdep'; })
+    .append('text')
+    .text(function(d) { return d.id; })
+    .attr('x', 14).attr('y', 4)
+    .attr('fill', 'rgba(255,255,255,0.8)')
+    .attr('font-size', function(d) { return d.group === 'root' ? '12px' : '10px'; })
+    .attr('font-family', 'var(--font-mono)')
+    .style('pointer-events', 'none');
+
+  simulation.on('tick', function() {
+    link
+      .attr('x1', function(d) { return d.source.x; }).attr('y1', function(d) { return d.source.y; })
+      .attr('x2', function(d) { return d.target.x; }).attr('y2', function(d) { return d.target.y; });
+    node.attr('transform', function(d) { return 'translate(' + d.x + ',' + d.y + ')'; });
+  });
+}
+
+// Auto-load if preselected or from localStorage
+<% if (typeof preselect !== 'undefined' && preselect) { %>
+  loadGraph();
+<% } else { %>
+  if (graphSearch.value) loadGraph();
+<% } %>
+</script>

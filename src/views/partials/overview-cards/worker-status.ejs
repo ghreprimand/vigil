@@ -1,0 +1,35 @@
+<%/* -- Worker Status ---------------------------------------------------------- */%>
+<div class="card" data-help="overview-worker-status">
+  <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;">
+    <a href="/settings#workers" style="color:inherit;text-decoration:none;">Worker Status</a>
+    <%
+      var wEnabled = workerHealth.filter(function(w) { return w.enabled; }).length;
+      var wFailed = workerHealth.filter(function(w) { return w.consecutiveFailures > 0; }).length;
+    %>
+    <span class="text-muted text-sm" style="font-weight:400;">
+      <% if (wFailed > 0) { %><span style="color:var(--red);"><%= wFailed %> failing</span> &middot; <% } %>
+      <%= wEnabled %>/<%= workerHealth.length %> active
+    </span>
+  </div>
+  <div class="card-body" style="padding:0;">
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:0;font-size:0.78rem;">
+      <% workerHealth.forEach(function(w) {
+        var dotColor = !w.enabled ? 'var(--text-muted)' :
+          w.consecutiveFailures > 0 ? 'var(--red)' :
+          w.lastCompleted ? 'var(--green)' : 'var(--text-muted)';
+        var lastRunAge = null;
+        if (w.lastCompleted) {
+          var ms = Date.now() - new Date(w.lastCompleted).getTime();
+          var hrs = ms / 3600000;
+          lastRunAge = hrs < 1 ? Math.round(hrs * 60) + 'm' : hrs < 24 ? Math.round(hrs) + 'h' : Math.floor(hrs / 24) + 'd';
+        }
+      %>
+        <div style="display:flex;align-items:center;gap:0.4rem;padding:0.3rem 0.6rem;border-bottom:1px solid var(--border-secondary);border-right:1px solid var(--border-secondary);">
+          <span style="color:<%= dotColor %>;font-size:0.6rem;">&#9679;</span>
+          <span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;<%= !w.enabled ? 'opacity:0.4;' : '' %>"><%= w.name %></span>
+          <span class="text-muted" style="font-size:0.72rem;white-space:nowrap;"><%= lastRunAge || '-' %></span>
+        </div>
+      <% }); %>
+    </div>
+  </div>
+</div>

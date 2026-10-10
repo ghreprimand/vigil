@@ -1,0 +1,72 @@
+<div style="display:flex;justify-content:flex-end;margin-bottom:0.75rem;">
+  <a href="/advisories/new" class="btn btn-primary" data-help="advisories-new">New Advisory</a>
+</div>
+
+<div class="toolbar">
+  <select class="filter-select" data-help="advisories-severity-filter" onchange="window.location.href='/advisories?severity='+this.value+'&resolved=<%= resolvedFilter %>'">
+    <option value="">All severities</option>
+    <option value="critical" <%= severityFilter === 'critical' ? 'selected' : '' %>>Critical</option>
+    <option value="warning" <%= severityFilter === 'warning' ? 'selected' : '' %>>Warning</option>
+    <option value="info" <%= severityFilter === 'info' ? 'selected' : '' %>>Info</option>
+  </select>
+  <select class="filter-select" data-help="advisories-status-filter" onchange="window.location.href='/advisories?severity=<%= severityFilter %>&resolved='+this.value">
+    <option value="" <%= resolvedFilter === '' ? 'selected' : '' %>>Active only</option>
+    <option value="all" <%= resolvedFilter === 'all' ? 'selected' : '' %>>Include resolved</option>
+  </select>
+</div>
+
+<% if (advisories.length === 0) { %>
+  <div class="empty-state">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    <p>No advisories found.</p>
+  </div>
+<% } else { %>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th data-help="advisories-col-severity">Severity</th>
+        <th data-help="advisories-col-title">Title</th>
+        <th data-help="advisories-col-packages">Packages</th>
+        <th data-help="advisories-col-kb-article">KB Article</th>
+        <th data-help="advisories-col-created">Created</th>
+        <th data-help="advisories-col-status">Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% advisories.forEach(function(a) { %>
+        <tr>
+          <td>
+            <span class="badge badge-advisory-<%= a.severity %>" data-help="advisories-severity-badge"><%= a.severity %></span>
+          </td>
+          <td>
+            <a href="/advisories/<%= a.id %>" style="font-weight:500;"><%= a.title %></a>
+          </td>
+          <td>
+            <% const pkgs = a.packages || []; %>
+            <% pkgs.slice(0, 3).forEach(function(p) { %>
+              <a href="/packages/<%= encodeURIComponent(p.name) %>" class="badge badge-info" style="text-decoration:none;margin-right:0.2rem;"><%= p.name %></a>
+            <% }) %>
+            <% if (pkgs.length > 3) { %>
+              <span class="text-muted text-sm">+<%= pkgs.length - 3 %> more</span>
+            <% } %>
+          </td>
+          <td>
+            <% if (a.kb_slug) { %>
+              <a href="/kb/<%= a.kb_slug %>" class="text-sm"><%= a.kb_title %></a>
+            <% } else { %>
+              <span class="text-muted">&mdash;</span>
+            <% } %>
+          </td>
+          <td class="text-secondary text-sm"><%= fmtDate(a.created_at) %></td>
+          <td>
+            <% if (a.resolved_at) { %>
+              <span class="badge badge-current" data-help="advisories-resolved-badge">resolved</span>
+            <% } else { %>
+              <span class="badge badge-accent" data-help="advisories-active-badge">active</span>
+            <% } %>
+          </td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+<% } %>

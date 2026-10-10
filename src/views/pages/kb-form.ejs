@@ -1,0 +1,83 @@
+<div class="breadcrumbs">
+  <a href="/kb">Knowledge Base</a>
+  <span class="sep">/</span>
+  <span><%= doc ? 'Edit' : 'New Article' %></span>
+</div>
+
+<div class="page-header">
+  <h1><%= doc ? 'Edit Article' : 'New Article' %></h1>
+</div>
+
+<form method="POST" action="<%= doc ? '/kb/' + doc.slug : '/kb' %>">
+  <div class="card" style="margin-bottom:1rem;">
+    <div class="card-body">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" data-help="kb-form-title-label">Title <span class="req">*</span></label>
+          <input type="text" name="title" class="form-input" data-help="kb-form-title-input" required
+            value="<%= doc ? doc.title : '' %>"
+            placeholder="e.g. build notes for a specific package">
+        </div>
+        <div class="form-group">
+          <label class="form-label" data-help="kb-form-slug-label">Slug <span class="req">*</span></label>
+          <input type="text" name="<%= doc ? 'newSlug' : 'slug' %>" class="form-input" data-help="kb-form-slug-input" required
+            value="<%= doc ? doc.slug : '' %>"
+            placeholder="e.g. openssl-3-migration-notes">
+          <div class="form-hint" data-help="kb-form-slug-hint">URL-friendly identifier. Lowercase letters, numbers, and hyphens only.</div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" data-help="kb-form-tags-label">Tags <span style="color:var(--text-muted);font-weight:normal;">(comma-separated)</span></label>
+        <input type="text" name="tags" class="form-input" data-help="kb-form-tags-input"
+          value="<%= doc && doc.tags ? doc.tags.join(', ') : '' %>"
+          placeholder="e.g. glib, pango, gtk, compatibility">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" data-help="kb-form-body-label">Body <span class="req">*</span> <span style="color:var(--text-muted);font-weight:normal;">(Markdown)</span></label>
+        <textarea name="body" class="form-input" data-help="kb-form-body-textarea" rows="20"
+          style="font-family:var(--font-mono);font-size:0.85rem;resize:vertical;"
+          placeholder="Write your article in Markdown..."><%= doc ? doc.body : '' %></textarea>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" data-help="kb-form-packages-label">Linked Packages</label>
+        <select name="packages" class="form-select" data-help="kb-form-packages-select" multiple size="8"
+          style="font-family:var(--font-mono);font-size:0.85rem;">
+          <% allPackages.forEach(function(pkg) { %>
+            <option value="<%= pkg.id %>" <%= linkedPackageIds.includes(pkg.id) ? 'selected' : '' %>><%= pkg.name %></option>
+          <% }) %>
+        </select>
+        <div class="form-hint" data-help="kb-form-packages-hint">Hold Ctrl/Cmd to select multiple packages. These packages will show this article in their detail page.</div>
+      </div>
+
+      <% if (!doc) { %>
+      <div class="card" data-help="kb-form-create-advisory" style="margin-top:1rem;border:1px solid var(--border-color);background:var(--bg-secondary);">
+        <div class="card-body" style="padding:0.75rem 1rem;">
+          <label data-help="kb-form-advisory-toggle" style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;font-size:0.9rem;">
+            <input type="checkbox" name="create_advisory" value="1" id="create-advisory-toggle"
+              onchange="document.getElementById('advisory-severity-row').style.display = this.checked ? 'flex' : 'none'">
+            <strong>Also create an advisory</strong>
+            <span style="color:var(--text-muted);font-weight:normal;">- adds a severity warning to the linked packages</span>
+          </label>
+          <div id="advisory-severity-row" style="display:none;margin-top:0.5rem;align-items:center;gap:0.75rem;">
+            <label class="form-label" data-help="kb-form-advisory-severity-label" style="margin:0;white-space:nowrap;">Severity</label>
+            <select name="advisory_severity" class="form-select" data-help="kb-form-advisory-severity-select" style="width:auto;">
+              <option value="info">Info</option>
+              <option value="warning" selected>Warning</option>
+              <option value="critical">Critical</option>
+            </select>
+            <span style="color:var(--text-muted);font-size:0.8rem;">Uses the same title and linked packages</span>
+          </div>
+        </div>
+      </div>
+      <% } %>
+
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary" data-help="kb-form-submit"><%= doc ? 'Save Changes' : 'Create Article' %></button>
+        <a href="<%= doc ? '/kb/' + doc.slug : '/kb' %>" class="btn" data-help="kb-form-cancel">Cancel</a>
+      </div>
+    </div>
+  </div>
+</form>

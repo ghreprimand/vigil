@@ -1,0 +1,123 @@
+
+<% if (typeof error !== 'undefined' && error) { %>
+  <div class="alert alert-error" style="margin-bottom:1rem;"><%= error %></div>
+<% } %>
+
+<%/* -- New Batch Form -------------------------------------------------- */%>
+<div class="card" style="margin-bottom:1rem;" data-help="batches-new-form">
+  <div class="card-header" style="cursor:pointer;" onclick="this.parentElement.querySelector('.card-body').classList.toggle('hidden')">
+    New Batch
+    <span class="text-muted text-sm" style="font-weight:400;margin-left:0.5rem;">click to expand</span>
+  </div>
+  <div class="card-body hidden">
+    <div style="display:flex;gap:1.5rem;flex-wrap:wrap;">
+      <%/* Auto mode */%>
+      <div style="flex:1;min-width:280px;" data-help="batches-auto-mode">
+        <h4 style="margin-bottom:0.5rem;font-size:0.9rem;">Auto - from staleness scores</h4>
+        <form method="post" action="/batches/create">
+          <input type="hidden" name="mode" value="auto">
+          <div style="margin-bottom:0.5rem;">
+            <label class="text-sm" data-help="batches-tier-label" style="display:block;margin-bottom:0.25rem;">Staleness tier</label>
+            <select name="tier" class="form-input" data-help="batches-tier-select" style="font-size:0.85rem;">
+              <option value="critical">Critical (score &ge; 25)</option>
+              <option value="high">High (score &ge; 15)</option>
+              <option value="medium" selected>Medium (score &ge; 5)</option>
+              <option value="all">All outdated</option>
+            </select>
+          </div>
+          <div style="margin-bottom:0.75rem;">
+            <label class="text-sm" data-help="batches-category-label" style="display:block;margin-bottom:0.25rem;">Category filter (optional)</label>
+            <select name="category" class="form-input" data-help="batches-category-select" style="font-size:0.85rem;">
+              <option value="">All categories</option>
+              <option value="toolchain">Toolchain</option>
+              <option value="kde">KDE</option>
+              <option value="core">Core</option>
+              <option value="apps">Apps</option>
+              <option value="security">Security</option>
+            </select>
+          </div>
+          <button type="submit" class="btn btn-primary btn-sm" data-help="batches-create-auto">Create Auto Batch</button>
+        </form>
+      </div>
+
+      <%/* Manual mode */%>
+      <div style="flex:1;min-width:280px;" data-help="batches-manual-mode">
+        <h4 style="margin-bottom:0.5rem;font-size:0.9rem;">Manual - specific packages</h4>
+        <form method="post" action="/batches/create">
+          <input type="hidden" name="mode" value="manual">
+          <div style="margin-bottom:0.5rem;">
+            <label class="text-sm" data-help="batches-name-label" style="display:block;margin-bottom:0.25rem;">Batch name</label>
+            <input type="text" name="name" class="form-input" data-help="batches-name-input" placeholder="e.g. KDE 6.3 update" style="font-size:0.85rem;">
+          </div>
+          <div style="margin-bottom:0.75rem;">
+            <label class="text-sm" data-help="batches-packages-label" style="display:block;margin-bottom:0.25rem;">Package names (one per line or comma-separated)</label>
+            <textarea name="packages" class="form-input" data-help="batches-packages-textarea" rows="4" placeholder="mesa&#10;llvm&#10;xorg-server" style="font-size:0.85rem;font-family:var(--font-mono);"></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary btn-sm" data-help="batches-create-manual">Create Manual Batch</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%/* -- Filter Tabs ----------------------------------------------------- */%>
+<div style="margin-bottom:0.75rem;display:flex;gap:0.5rem;flex-wrap:wrap;font-size:0.85rem;">
+  <a href="/batches" class="btn btn-sm<%= typeof status === 'undefined' || !status ? ' btn-primary' : '' %>" data-help="batches-filter-all" style="text-decoration:none;">All</a>
+  <a href="/batches?status=planned" class="btn btn-sm" data-help="batches-filter-planned" style="text-decoration:none;">Planned</a>
+  <a href="/batches?status=in_progress" class="btn btn-sm" data-help="batches-filter-in-progress" style="text-decoration:none;">In Progress</a>
+  <a href="/batches?status=completed" class="btn btn-sm" data-help="batches-filter-completed" style="text-decoration:none;">Completed</a>
+</div>
+
+<%/* -- Batch List ------------------------------------------------------ */%>
+<% if (batches.length === 0) { %>
+  <div class="card">
+    <div class="card-body">
+      <p class="text-muted" style="text-align:center;padding:2rem 0;">No batches found. Create one above to get started.</p>
+    </div>
+  </div>
+<% } else { %>
+  <div class="table-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th data-help="batches-col-name">Name</th>
+          <th data-help="batches-status">Status</th>
+          <th data-help="batches-col-progress">Progress</th>
+          <th data-help="batches-col-created">Created</th>
+          <th data-help="batches-col-completed">Completed</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% batches.forEach(function(b) { %>
+          <tr style="cursor:pointer;" onclick="window.location='/batches/<%= b.id %>'">
+            <td><a href="/batches/<%= b.id %>" style="text-decoration:none;"><%= b.name %></a></td>
+            <td>
+              <% if (b.status === 'completed') { %>
+                <span class="badge badge-success">Completed</span>
+              <% } else if (b.status === 'in_progress') { %>
+                <span class="badge badge-warning">In Progress</span>
+              <% } else { %>
+                <span class="badge badge-info">Planned</span>
+              <% } %>
+            </td>
+            <td>
+              <% var pct = b.totalItems > 0 ? Math.round(b.completedItems / b.totalItems * 100) : 0; %>
+              <div style="display:flex;align-items:center;gap:0.5rem;">
+                <div style="flex:1;max-width:120px;height:6px;background:var(--bg-tertiary);border-radius:3px;overflow:hidden;">
+                  <div style="width:<%= pct %>%;height:100%;background:<%= pct === 100 ? '#4ade80' : '#6495ed' %>;border-radius:3px;"></div>
+                </div>
+                <span class="text-sm text-muted"><%= b.completedItems %>/<%= b.totalItems %></span>
+              </div>
+            </td>
+            <td class="text-muted text-sm"><%= b.createdAt.toISOString().slice(0, 10) %></td>
+            <td class="text-muted text-sm"><%= b.completedAt ? b.completedAt.toISOString().slice(0, 10) : '-' %></td>
+          </tr>
+        <% }); %>
+      </tbody>
+    </table>
+  </div>
+<% } %>
+
+<style>
+  .hidden { display: none !important; }
+</style>

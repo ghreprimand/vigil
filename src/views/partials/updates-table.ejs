@@ -1,0 +1,301 @@
+<%
+const sortDir = (col, natural) => sort === col ? (dir === 'asc' ? 'desc' : 'asc') : natural;
+const arrow = (col) => sort === col ? (dir === 'asc' ? ' ^' : ' v') : '';
+const activeClass = (col) => sort === col ? 'sort-active' : '';
+const sortVals = (col, natural) => JSON.stringify({ sort: col, dir: sortDir(col, natural), page: '1' });
+const syncInputs = (col, natural) => {
+  const nd = sortDir(col, natural);
+  return `document.getElementById('upd-dir').value='${nd}';document.querySelector('[name=sort].filter-select').value='${col}'`;
+};
+%>
+<div id="bulk-bar" data-help="updates-bulk-bar" style="display:none;padding:0.5rem 0.75rem;margin-bottom:0.5rem;background:rgba(100,149,237,0.1);border:1px solid rgba(100,149,237,0.3);border-radius:6px;align-items:center;gap:0.75rem;flex-wrap:wrap;"
+  x-data="{action:'pin',reason:'',days:'30'}" x-show="document.querySelectorAll('.bulk-check:checked').length > 0">
+  <span id="bulk-count" style="font-size:0.85rem;font-weight:600;">0 selected</span>
+  <select x-model="action" class="filter-select" data-help="updates-bulk-action-select" style="font-size:0.8rem;">
+    <option value="pin">Pin</option>
+    <option value="defer">Defer</option>
+  </select>
+  <template x-if="action === 'defer'">
+    <select x-model="days" class="filter-select" style="font-size:0.8rem;">
+      <option value="7">7 days</option>
+      <option value="30">30 days</option>
+      <option value="90">90 days</option>
+    </select>
+  </template>
+  <input x-model="reason" type="text" placeholder="Reason (optional)" class="form-input" data-help="updates-bulk-reason" style="font-size:0.8rem;padding:0.25rem 0.5rem;flex:1;min-width:150px;">
+  <button class="btn btn-primary btn-sm" data-help="updates-bulk-apply" style="font-size:0.8rem;" onclick="bulkAction(this)">Apply</button>
+  <button class="btn btn-sm" style="font-size:0.75rem;" onclick="document.querySelectorAll('.bulk-check').forEach(c=>c.checked=false);updateBulkBar()">Clear</button>
+</div>
+<script>
+function updateBulkBar() {
+  var checked = document.querySelectorAll('.bulk-check:checked');
+  var bar = document.getElementById('bulk-bar');
+  var cnt = document.getElementById('bulk-count');
+  bar.style.display = checked.length > 0 ? 'flex' : 'none';
+  cnt.textContent = checked.length + ' selected';
+}
+function toggleAll(master) {
+  document.querySelectorAll('.bulk-check').forEach(function(c) { c.checked = master.checked; });
+  updateBulkBar();
+}
+function bulkAction(btn) {
+  var names = Array.from(document.querySelectorAll('.bulk-check:checked')).map(function(c) { return c.value; });
+  if (names.length === 0) return;
+  var bar = btn.closest('[x-data]');
+  var action = bar.__x.$data.action;
+  var reason = bar.__x.$data.reason;
+  var days = bar.__x.$data.days;
+  var url = '/packages/bulk/' + action;
+  var body = { names: names, reason: reason };
+  if (action === 'defer') body.days = days;
+  fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    .then(function() { window.location.reload(); });
+}
+</script>
+<table class="data-table">
+  <thead>
+    <tr>
+      <% if (typeof category !== 'undefined' && category === 'pinned') { %>
+        <th data-tooltip="Package name. Click to view full details.">Package</th>
+        <th data-tooltip="Version currently installed on this system.">Installed</th>
+        <th data-help="updates-col-pin-reason" data-tooltip="Reason this package is pinned (won't be updated).">Pin Reason</th>
+        <th data-help="updates-col-pinned-since" data-tooltip="When this package was pinned.">Pinned Since</th>
+        <th></th>
+      <% } else if (typeof category !== 'undefined' && category === 'deferred') { %>
+        <th data-tooltip="Package name. Click to view full details.">Package</th>
+        <th data-tooltip="Version currently installed on this system.">Installed</th>
+        <th data-tooltip="Newest upstream version found. Monitoring continues while deferred.">Available</th>
+        <th data-tooltip="Number of open security CVEs. CVE monitoring continues while deferred.">CVEs</th>
+        <th data-help="updates-col-defer-reason" data-tooltip="Reason this package update is deferred.">Defer Reason</th>
+        <th data-help="updates-col-deferred-expires" data-tooltip="When this package was deferred and when the deferral expires.">Deferred / Expires</th>
+        <th></th>
+      <% } else { %>
+        <th class="<%= activeClass('score') %>" data-help="updates-col-score" data-tooltip="Staleness score (0-50+). Formula: (10 if has CVE) + (CVSS x 2) + min(versions behind x 3, 15) + min(days/30, 10) + min(reverse deps/10, 5). Higher = more urgent.">
+          <a href="#" class="sort-link"
+             hx-get="/partials/updates-table"
+             hx-target="#updates-table"
+             hx-include="[name='q'],[name='category'],[name='min_score']"
+             hx-vals='<%- sortVals("score", "desc") %>'
+             hx-on::before-request="<%= syncInputs('score', 'desc') %>">Score<%= arrow('score') %></a>
+        </th>
+        <th class="<%= activeClass('name') %>" data-tooltip="Package name. Click to view full details including all upstream releases and linked CVEs.">
+          <a href="#" class="sort-link"
+             hx-get="/partials/updates-table"
+             hx-target="#updates-table"
+             hx-include="[name='q'],[name='category'],[name='min_score']"
+             hx-vals='<%- sortVals("name", "asc") %>'
+             hx-on::before-request="<%= syncInputs('name', 'asc') %>">Package<%= arrow('name') %></a>
+        </th>
+        <th class="<%= activeClass('installed') %>" data-help="updates-col-installed" data-tooltip="Version currently installed on this system.">
+          <a href="#" class="sort-link"
+             hx-get="/partials/updates-table"
+             hx-target="#updates-table"
+             hx-include="[name='q'],[name='category'],[name='min_score']"
+             hx-vals='<%- sortVals("installed", "asc") %>'
+             hx-on::before-request="<%= syncInputs('installed', 'asc') %>">Installed<%= arrow('installed') %></a>
+        </th>
+        <th class="<%= activeClass('available') %>" data-help="updates-col-available" data-tooltip="Newest upstream version found. The badge color reflects the score tier.">
+          <a href="#" class="sort-link"
+             hx-get="/partials/updates-table"
+             hx-target="#updates-table"
+             hx-include="[name='q'],[name='category'],[name='min_score']"
+             hx-vals='<%- sortVals("available", "asc") %>'
+             hx-on::before-request="<%= syncInputs('available', 'asc') %>">Available<%= arrow('available') %></a>
+        </th>
+        <th class="<%= activeClass('cves') %>" data-help="updates-col-cves" data-tooltip="Number of open security CVEs linked to this package.">
+          <a href="#" class="sort-link"
+             hx-get="/partials/updates-table"
+             hx-target="#updates-table"
+             hx-include="[name='q'],[name='category'],[name='min_score']"
+             hx-vals='<%- sortVals("cves", "desc") %>'
+             hx-on::before-request="<%= syncInputs('cves', 'desc') %>">CVEs<%= arrow('cves') %></a>
+        </th>
+        <th class="<%= activeClass('revdeps') %>" data-help="updates-col-revdeps" data-tooltip="Reverse dependencies - packages that depend on this one. Higher counts increase the staleness score because an outdated core library affects many other packages.">
+          <a href="#" class="sort-link"
+             hx-get="/partials/updates-table"
+             hx-target="#updates-table"
+             hx-include="[name='q'],[name='category'],[name='min_score']"
+             hx-vals='<%- sortVals("revdeps", "desc") %>'
+             hx-on::before-request="<%= syncInputs('revdeps', 'desc') %>">Rev Deps<%= arrow('revdeps') %></a>
+        </th>
+        <th class="<%= activeClass('days') %>" data-help="updates-col-days" data-tooltip="Days since the earliest newer upstream release was published. A package released 6 months ago scores higher than one released last week.">
+          <a href="#" class="sort-link"
+             hx-get="/partials/updates-table"
+             hx-target="#updates-table"
+             hx-include="[name='q'],[name='category'],[name='min_score']"
+             hx-vals='<%- sortVals("days", "desc") %>'
+             hx-on::before-request="<%= syncInputs('days', 'desc') %>">Days Behind<%= arrow('days') %></a>
+        </th>
+        <th style="width:2rem;"><input type="checkbox" data-help="updates-bulk-checkbox" onchange="toggleAll(this)" title="Select all"></th>
+      <% } %>
+    </tr>
+  </thead>
+  <tbody>
+    <% if (updates.length === 0) { %>
+      <% var emptyMsg = (typeof category !== 'undefined' && category === 'pinned') ? 'No pinned packages.' : (typeof category !== 'undefined' && category === 'deferred') ? 'No deferred packages.' : 'No outdated packages match this filter.'; %>
+      <tr><td colspan="8" class="empty-state"><p><%= emptyMsg %></p></td></tr>
+    <% } %>
+    <% updates.forEach(function(u) { %>
+      <% if (typeof category !== 'undefined' && category === 'pinned') { %>
+        <tr id="pkg-row-<%= u.name %>">
+          <td><a href="/packages/<%= encodeURIComponent(u.name) %>"><%= u.name %></a></td>
+          <td class="mono"><%= u.installedVersion %></td>
+          <td class="text-muted"><%= u.pinReason || '-' %></td>
+          <td class="text-muted"><%= u.pinnedAt ? fmtDate(u.pinnedAt) : '-' %></td>
+          <td>
+            <button class="btn-pin btn-unpin" data-help="updates-unpin-btn"
+                    hx-post="/packages/<%= encodeURIComponent(u.name) %>/unpin"
+                    hx-target="#pkg-row-<%= u.name %>"
+                    hx-swap="delete"
+                    hx-confirm="Unpin <%= u.name %>? It will reappear in the updates list."
+                    title="Unpin this package">
+              Unpin
+            </button>
+          </td>
+        </tr>
+      <% } else if (typeof category !== 'undefined' && category === 'deferred') { %>
+        <tr id="pkg-row-<%= u.name %>">
+          <td><a href="/packages/<%= encodeURIComponent(u.name) %>"><%= u.name %></a></td>
+          <td class="mono"><%= u.installedVersion %></td>
+          <td class="mono">
+            <% if (u.upstreamVersion) { %>
+              <span class="badge badge-outdated"><%= u.upstreamVersion %></span>
+            <% } else { %>
+              <span class="text-muted">&mdash;</span>
+            <% } %>
+          </td>
+          <td>
+            <% if (u.openCves > 0) { %>
+              <span class="badge badge-critical"><%= u.openCves %></span>
+            <% } else { %>
+              <span class="text-muted">0</span>
+            <% } %>
+          </td>
+          <td class="text-muted"><%= u.deferReason || '-' %></td>
+          <td class="text-muted" style="white-space:nowrap;">
+            <%
+              const _tDeferExp = u.deferredAt && u.deferDays ? new Date(new Date(u.deferredAt).getTime() + u.deferDays * 86400000) : null;
+              const _tDaysLeft = _tDeferExp ? Math.ceil((_tDeferExp - new Date()) / 86400000) : null;
+            %>
+            <%= u.deferredAt ? fmtDate(u.deferredAt) : '-' %>
+            <% if (_tDeferExp) { %>
+              <br><span class="text-muted" style="font-size:0.75em;">
+                <% if (_tDaysLeft !== null && _tDaysLeft <= 0) { %>
+                  <span style="color:var(--text-warning,#f59e0b);">Expired</span>
+                <% } else { %>
+                  expires <%= fmtDate(_tDeferExp) %><br><%= _tDaysLeft %> day<%= _tDaysLeft !== 1 ? 's' : '' %> left
+                <% } %>
+              </span>
+            <% } %>
+          </td>
+          <td style="white-space:nowrap;">
+            <button class="btn-pin" data-help="updates-adjust-defer-btn" style="font-size:0.75rem;margin-right:0.25rem;"
+                    title="Adjust deferral duration"
+                    onclick="openDeferModal(<%- JSON.stringify(u.name) %>)">
+              Adjust
+            </button>
+            <button class="btn-pin btn-unpin" data-help="updates-undefer-btn"
+                    hx-post="/packages/<%= encodeURIComponent(u.name) %>/undefer"
+                    hx-target="#pkg-row-<%= u.name %>"
+                    hx-swap="delete"
+                    hx-confirm="Undefer <%= u.name %>? It will reappear in the updates list."
+                    title="Undefer this package">
+              Undefer
+            </button>
+          </td>
+        </tr>
+      <% } else { %>
+        <tr id="pkg-row-<%= u.name %>">
+          <td>
+            <% if (u.hasCve) { %>
+              <span class="badge badge-critical" data-help="updates-score-colors"><%= u.score.toFixed(1) %></span>
+            <% } else if (u.score >= 20) { %>
+              <span class="badge badge-high" data-help="updates-score-colors"><%= u.score.toFixed(1) %></span>
+            <% } else if (u.score >= 10) { %>
+              <span class="badge badge-medium" data-help="updates-score-colors"><%= u.score.toFixed(1) %></span>
+            <% } else { %>
+              <span class="badge badge-low" data-help="updates-score-colors"><%= u.score.toFixed(1) %></span>
+            <% } %>
+          </td>
+          <td>
+            <a href="/packages/<%= encodeURIComponent(u.name) %>"><%= u.name %></a>
+            <% if (u.deferredAt) { %><span class="badge" style="background:var(--muted);font-size:0.7em;margin-left:4px" title="Deferred: <%= u.deferReason || 'no reason given' %>">deferred</span><% } %>
+          </td>
+          <td class="mono"><%= u.installedVersion %></td>
+          <td class="mono">
+            <% if (u.upstreamVersion) { %>
+              <span class="badge badge-outdated"><%= u.upstreamVersion %></span>
+            <% } else { %>
+              <span class="text-muted">&mdash;</span>
+            <% } %>
+          </td>
+          <td>
+            <% if (u.openCves > 0) { %>
+              <span class="badge badge-critical"><%= u.openCves %></span>
+            <% } else { %>
+              <span class="text-muted">0</span>
+            <% } %>
+          </td>
+          <td><%= u.reverseDepCount %></td>
+          <td><%= u.daysBehind %></td>
+          <td style="white-space:nowrap;">
+            <input type="checkbox" class="bulk-check" value="<%= u.name %>" onchange="updateBulkBar()" style="margin-right:0.3rem;vertical-align:middle;">
+            <button class="btn-pin" data-help="updates-pin-btn"
+                    hx-post="/packages/<%= encodeURIComponent(u.name) %>/pin"
+                    hx-target="#pkg-row-<%= u.name %>"
+                    hx-swap="delete"
+                    title="Pin this package (exclude from updates)"
+                    onclick="return confirm('Pin <%= u.name %>? It will be hidden from the updates list until unpinned.')">
+              
+            </button>
+            <button class="btn-pin btn-defer" data-help="updates-defer-btn"
+                    title="Defer this package (exclude from updates temporarily, monitoring continues)"
+                    onclick="openDeferModal(<%- JSON.stringify(u.name) %>); return false;">
+              
+            </button>
+          </td>
+        </tr>
+      <% } %>
+    <% }) %>
+  </tbody>
+</table>
+<% if (updates.length > 0) { %>
+<div class="table-footer">
+  <% var countLabel = (typeof category !== 'undefined' && category === 'pinned') ? 'pinned packages' : (typeof category !== 'undefined' && category === 'deferred') ? 'deferred packages' : 'outdated packages'; %>
+  <span class="count">Showing <%= updates.length %> of <%= totalOutdated %> <%= countLabel %></span>
+  <% if (totalPages > 1) { %>
+  <nav class="pagination">
+    <% if (currentPage > 1) { %>
+      <a href="#" class="btn-page"
+         hx-get="/partials/updates-table"
+         hx-target="#updates-table"
+         hx-include="[name='q'],[name='category'],[name='min_score']"
+         hx-vals='<%- JSON.stringify({page: currentPage - 1, sort, dir}) %>'
+         hx-push-url="false">&laquo;</a>
+    <% } %>
+    <% for (let p = 1; p <= totalPages; p++) { %>
+      <% if (p === currentPage) { %>
+        <span class="btn-page active"><%= p %></span>
+      <% } else if (Math.abs(p - currentPage) <= 2 || p === 1 || p === totalPages) { %>
+        <a href="#" class="btn-page"
+           hx-get="/partials/updates-table"
+           hx-target="#updates-table"
+           hx-include="[name='q'],[name='category'],[name='min_score']"
+           hx-vals='<%- JSON.stringify({page: p, sort, dir}) %>'
+           hx-push-url="false"><%= p %></a>
+      <% } else if (Math.abs(p - currentPage) === 3) { %>
+        <span class="ellipsis">&hellip;</span>
+      <% } %>
+    <% } %>
+    <% if (currentPage < totalPages) { %>
+      <a href="#" class="btn-page"
+         hx-get="/partials/updates-table"
+         hx-target="#updates-table"
+         hx-include="[name='q'],[name='category'],[name='min_score']"
+         hx-vals='<%- JSON.stringify({page: currentPage + 1, sort, dir}) %>'
+         hx-push-url="false">&raquo;</a>
+    <% } %>
+  </nav>
+  <% } %>
+</div>
+<% } %>

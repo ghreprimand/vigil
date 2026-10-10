@@ -1,0 +1,124 @@
+<div class="stat-grid">
+  <a href="/packages" class="stat-card" data-help="packages-total">
+    <div class="stat-value text-blue"><%= packageCount %></div>
+    <div class="stat-label" data-tooltip="All packages tracked from your pacman database, including recently-removed ones.">Total Packages</div>
+  </a>
+  <div class="stat-card" data-help="packages-outdated-stat" style="cursor:pointer;"
+       hx-get="/partials/package-table"
+       hx-target="#package-table"
+       hx-include="[name='q'],[name='sort'],[name='dir'],[name='group']"
+       hx-vals='{"status":"outdated","page":"1"}'
+       onclick="document.querySelector('[name=status].filter-select').value='outdated'">
+    <div class="stat-value <%= outdatedCount > 0 ? 'text-orange' : 'text-green' %>"><%= outdatedCount %></div>
+    <div class="stat-label" data-tooltip="Packages where a newer version exists upstream. The tier badges (Critical/High/Medium/Low) break down by staleness score - they count only packages with a computed score, so they may not sum to this total.">Outdated</div>
+    <% if (outdatedCount > 0) { %>
+      <div class="stat-detail" style="display:flex;flex-wrap:wrap;gap:4px;justify-content:center;">
+        <% if (stalenessTiers.critical > 0) { %><span class="badge badge-critical" style="cursor:pointer;" hx-get="/partials/package-table" hx-target="#package-table" hx-include="[name='q'],[name='sort'],[name='dir'],[name='group']" hx-vals='{"status":"critical","page":"1"}' onclick="event.stopPropagation();document.querySelector('[name=status].filter-select').value='critical'"><%= stalenessTiers.critical %> Critical</span><% } %>
+        <% if (stalenessTiers.high > 0) { %><span class="badge badge-high" style="cursor:pointer;" hx-get="/partials/package-table" hx-target="#package-table" hx-include="[name='q'],[name='sort'],[name='dir'],[name='group']" hx-vals='{"status":"high","page":"1"}' onclick="event.stopPropagation();document.querySelector('[name=status].filter-select').value='high'"><%= stalenessTiers.high %> High</span><% } %>
+        <% if (stalenessTiers.medium > 0) { %><span class="badge badge-medium" style="cursor:pointer;" hx-get="/partials/package-table" hx-target="#package-table" hx-include="[name='q'],[name='sort'],[name='dir'],[name='group']" hx-vals='{"status":"medium","page":"1"}' onclick="event.stopPropagation();document.querySelector('[name=status].filter-select').value='medium'"><%= stalenessTiers.medium %> Medium</span><% } %>
+        <% if (stalenessTiers.low > 0) { %><span class="badge badge-low" style="cursor:pointer;" hx-get="/partials/package-table" hx-target="#package-table" hx-include="[name='q'],[name='sort'],[name='dir'],[name='group']" hx-vals='{"status":"low","page":"1"}' onclick="event.stopPropagation();document.querySelector('[name=status].filter-select').value='low'"><%= stalenessTiers.low %> Low</span><% } %>
+      </div>
+    <% } %>
+  </div>
+  <% if (deferredCount > 0) { %>
+  <div class="stat-card" data-help="packages-deferred-stat" style="cursor:pointer;"
+       hx-get="/partials/package-table"
+       hx-target="#package-table"
+       hx-include="[name='q'],[name='sort'],[name='dir'],[name='group']"
+       hx-vals='{"status":"deferred","page":"1"}'
+       onclick="document.querySelector('[name=status].filter-select').value='deferred'">
+    <div class="stat-value text-muted"><%= deferredCount %></div>
+    <div class="stat-label" data-tooltip="Packages deferred from the outdated count. Upstream and CVE monitoring continues.">Deferred</div>
+  </div>
+  <% } %>
+  <a href="/cves" class="stat-card" data-help="packages-open-cves-stat">
+    <div class="stat-value <%= openCveCount > 0 ? 'text-red' : 'text-green' %>"><%= openCveCount %></div>
+    <div class="stat-label" data-tooltip="Known security vulnerabilities affecting your packages. Includes CVEs against packages already at their latest known version - those won't appear in Updates, only here in Security.">Open CVEs</div>
+    <% if (openCveCount > 0) { %>
+      <div class="stat-detail">View security issues</div>
+    <% } %>
+  </a>
+  <div class="stat-card" data-help="packages-last-push-stat">
+    <% if (lastPush) { %>
+      <div class="stat-value text-accent"><%= fmtDate(lastPush.pushedAt) %></div>
+      <div class="stat-label" data-tooltip="When pacman last synced your installed package list to this server. Happens automatically on every pacman transaction.">Last Push</div>
+      <div class="stat-detail">
+        <% if (lastPush.packagesAdded && lastPush.packagesAdded.length) { %>
+          <span class="badge badge-new">+<%= lastPush.packagesAdded.length %> new</span>
+        <% } %>
+        <% if (Object.keys(lastPush.packagesUpdated || {}).length) { %>
+          <span class="badge badge-accent"><%= Object.keys(lastPush.packagesUpdated).length %> updated</span>
+        <% } %>
+      </div>
+    <% } else { %>
+      <div class="stat-value text-muted">Never</div>
+      <div class="stat-label" data-tooltip="When pacman last synced your installed package list to this server. Happens automatically on every pacman transaction.">Last Push</div>
+    <% } %>
+  </div>
+</div>
+
+<div class="toolbar">
+  <input type="search"
+         class="search-input"
+         name="q"
+         data-help="packages-search"
+         placeholder="Search packages..."
+         hx-get="/partials/package-table"
+         hx-trigger="input changed delay:300ms, search"
+         hx-target="#package-table"
+         hx-include="[name='sort'],[name='dir'],[name='group'],[name='status']"
+         hx-vals='{"page": "1"}'
+         value="<%= query %>">
+  <div data-tooltip="Filter the package list. 'No upstream' shows packages with no monitoring source configured yet.">
+  <select name="status" class="filter-select" data-help="packages-status-filter"
+          hx-get="/partials/package-table"
+          hx-trigger="change"
+          hx-target="#package-table"
+          hx-include="[name='q'],[name='sort'],[name='dir'],[name='group']"
+          hx-vals='{"page": "1"}'>
+    <option value="" <%= status === '' ? 'selected' : '' %>>All packages</option>
+    <option value="outdated" <%= status === 'outdated' ? 'selected' : '' %>>Outdated (all)</option>
+    <option value="critical" <%= status === 'critical' ? 'selected' : '' %>>Critical (25+)</option>
+    <option value="high" <%= status === 'high' ? 'selected' : '' %>>High (15-24)</option>
+    <option value="medium" <%= status === 'medium' ? 'selected' : '' %>>Medium (5-14)</option>
+    <option value="low" <%= status === 'low' ? 'selected' : '' %>>Low (0-4)</option>
+    <option value="cve" <%= status === 'cve' ? 'selected' : '' %>>Has CVEs</option>
+    <option value="deferred" <%= status === 'deferred' ? 'selected' : '' %>>Deferred</option>
+    <option value="uptodate" <%= status === 'uptodate' ? 'selected' : '' %>>Up to date</option>
+    <option value="unchecked" <%= status === 'unchecked' ? 'selected' : '' %>>No upstream</option>
+    <option value="removed" <%= status === 'removed' ? 'selected' : '' %>>Removed</option>
+  </select>
+  </div>
+  <select name="group" class="filter-select" data-help="packages-group-filter"
+          hx-get="/partials/package-table"
+          hx-trigger="change"
+          hx-target="#package-table"
+          hx-include="[name='q'],[name='sort'],[name='dir'],[name='status']"
+          hx-vals='{"page": "1"}'>
+    <option value="">All groups</option>
+    <% groups.forEach(function(g) { %>
+      <option value="<%= g %>" <%= group === g ? 'selected' : '' %>><%= g %></option>
+    <% }) %>
+  </select>
+  <select name="sort" class="filter-select" data-help="packages-sort-filter"
+          hx-get="/partials/package-table"
+          hx-trigger="change"
+          hx-target="#package-table"
+          hx-include="[name='q'],[name='group'],[name='status']"
+          hx-vals='{"page": "1", "dir": "asc"}'
+          hx-on::before-request="document.getElementById('pkg-dir').value='asc'">
+    <option value="name" <%= sort === 'name' ? 'selected' : '' %>>Name</option>
+    <option value="version" <%= sort === 'version' ? 'selected' : '' %>>Version</option>
+    <option value="last_seen" <%= sort === 'last_seen' ? 'selected' : '' %>>Last Seen</option>
+    <option value="install_date" <%= sort === 'install_date' ? 'selected' : '' %>>Install Date</option>
+  </select>
+  <input type="hidden" id="pkg-dir" name="dir" value="<%= dir %>">
+  <input type="hidden" id="pkg-page" name="page" value="<%= currentPage %>">
+</div>
+
+<div id="package-table"
+     hx-get="/partials/package-table"
+     hx-trigger="every 60s"
+     hx-include="[name='q'],[name='sort'],[name='dir'],[name='group'],[name='status'],[name='page']">
+  <%- include('../partials/package-table.ejs', { packages, totalFiltered, totalPages, currentPage }) %>
+</div>

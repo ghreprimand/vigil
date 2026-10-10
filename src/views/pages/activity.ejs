@@ -1,0 +1,197 @@
+<div class="stat-grid">
+  <div class="stat-card" data-help="activity-total-pushes">
+    <div class="stat-value text-blue"><%= totalPushes %></div>
+    <div class="stat-label" data-tooltip="Total manifest push events recorded. Each push happens automatically on every pacman transaction and on a schedule.">Total Pushes</div>
+  </div>
+  <div class="stat-card" data-help="activity-updated">
+    <div class="stat-value <%= totalUpdated > 0 ? 'text-accent' : '' %>"><%= totalUpdated %></div>
+    <div class="stat-label" data-tooltip="Total number of individual package version changes across all recorded pushes.">Packages Updated</div>
+  </div>
+  <div class="stat-card" data-help="activity-added">
+    <div class="stat-value <%= totalAdded > 0 ? 'text-green' : '' %>"><%= totalAdded %></div>
+    <div class="stat-label" data-tooltip="Total packages added (newly installed) across all recorded pushes.">Total Added</div>
+  </div>
+  <div class="stat-card" data-help="activity-removed">
+    <div class="stat-value <%= totalRemoved > 0 ? 'text-orange' : '' %>"><%= totalRemoved %></div>
+    <div class="stat-label" data-tooltip="Total packages removed across all recorded pushes.">Total Removed</div>
+  </div>
+</div>
+
+<% if (events && events.length > 0) { %>
+<div class="card" style="margin-bottom: 1rem;" data-help="activity-auto-actions">
+  <details open data-help="activity-auto-actions-details">
+    <summary class="card-header" data-help="activity-auto-actions-summary" style="display: flex; align-items: center; justify-content: space-between;">
+      <div style="display: flex; align-items: center; gap: 0.5rem;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px;">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+        </svg>
+        <span>Automated Actions</span>
+        <span class="badge badge-info"><%= events.length %></span>
+      </div>
+      <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px;">
+        <polyline points="6 9 12 15 18 9"/>
+      </svg>
+    </summary>
+    <div style="max-height: 400px; overflow-y: auto;">
+      <table class="data-table" style="margin: 0;">
+        <thead>
+          <tr>
+            <th data-help="activity-auto-col-time" style="width: 140px;">Time</th>
+            <th data-help="activity-auto-col-type" style="width: 120px;">Type</th>
+            <th data-help="activity-auto-col-details">Details</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% events.forEach(function(event) {
+            const badgeClass = event.type === 'cve_auto_cleared' ? 'badge-green' : 'badge-info';
+            const typeLabel = event.type === 'cve_auto_cleared' ? 'CVE Auto-cleared'
+              : event.type === 'cve_dismissed' ? 'CVE Dismissed'
+              : event.type === 'cve_reopened' ? 'CVE Reopened'
+              : event.type;
+            const meta = event.metadata || {};
+          %>
+          <tr>
+            <td style="font-size: 0.8rem; color: var(--text-secondary);"><time class="local-time" datetime="<%= new Date(event.createdAt).toISOString() %>"></time></td>
+            <td><span class="badge <%= badgeClass %>" data-help="activity-auto-type-badge"><%= typeLabel %></span></td>
+            <td style="font-size: 0.85rem;">
+              <% if (meta.cveId) { %>
+                <a href="/cves/<%= meta.cveId %>"><%= meta.cveId %></a> -
+              <% } %>
+              <%= event.message %>
+            </td>
+          </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </details>
+</div>
+<% } %>
+
+<% if (groups.length === 0) { %>
+  <div class="card">
+    <div class="card-body">
+      <div class="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+        </svg>
+        <p>No manifest pushes recorded yet.</p>
+        <p class="text-muted text-sm" style="margin-top: 0.35rem;">Push a package manifest from your system or wait for the scheduled push.</p>
+      </div>
+    </div>
+  </div>
+<% } else { %>
+
+<div style="display: flex; flex-direction: column; gap: 0.5rem;">
+  <% groups.forEach(function(group, idx) {
+    const updatedEntries = Object.entries(group.packagesUpdated || {});
+    const addedList = group.packagesAdded || [];
+    const removedList = group.packagesRemoved || [];
+    const totalChanges = updatedEntries.length + addedList.length + removedList.length;
+    const isRange = group.startTime.getTime() !== group.endTime.getTime();
+  %>
+  <details class="card" <%= idx === 0 ? 'open' : '' %>>
+    <summary class="card-header" data-help="activity-push-group-summary" style="display: flex; align-items: center; justify-content: space-between;">
+      <div style="display: flex; align-items: center; gap: 0.75rem;">
+        <% if (isRange) { %>
+          <span class="local-time-range" data-start="<%= group.startTime.toISOString() %>" data-end="<%= group.endTime.toISOString() %>" style="color: var(--text-secondary); font-size: 0.8rem; font-weight: 500;"></span>
+        <% } else { %>
+          <time class="local-time" datetime="<%= group.endTime.toISOString() %>" style="color: var(--text-secondary); font-size: 0.8rem; font-weight: 500;"></time>
+        <% } %>
+        <div style="display: flex; gap: 0.35rem; flex-wrap: wrap;">
+          <% if (addedList.length > 0) { %>
+            <span class="badge badge-new" data-help="activity-push-added">+<%= addedList.length %> added</span>
+          <% } %>
+          <% if (updatedEntries.length > 0) { %>
+            <span class="badge badge-accent" data-help="activity-push-updated"><%= updatedEntries.length %> updated</span>
+          <% } %>
+          <% if (removedList.length > 0) { %>
+            <span class="badge badge-removed" data-help="activity-push-removed"><%= removedList.length %> removed</span>
+          <% } %>
+          <% if (totalChanges === 0) { %>
+            <span class="badge badge-info" data-help="activity-push-no-changes">no changes</span>
+          <% } %>
+          <% if (group.pushCount > 1) { %>
+            <span class="badge badge-info" style="opacity: 0.7;"><%= group.pushCount %> pushes</span>
+          <% } %>
+        </div>
+      </div>
+      <svg class="chevron-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px;">
+        <polyline points="6 9 12 15 18 9"/>
+      </svg>
+    </summary>
+
+    <% if (updatedEntries.length > 0) { %>
+    <div style="padding: 0.75rem 1rem; border-bottom: 1px solid var(--border-secondary);">
+      <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.5rem;">Updated</div>
+      <div style="display: flex; flex-direction: column; gap: 0.3rem;">
+        <% updatedEntries.forEach(function(entry) { var pkgName = entry[0]; var change = entry[1]; %>
+          <div style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem;">
+            <a href="/packages/<%= encodeURIComponent(pkgName) %>" style="font-family: var(--font-mono); font-size: 0.85em; min-width: 180px;"><%= pkgName %></a>
+            <span class="mono text-muted"><%= change.from %></span>
+            <span style="color: var(--text-muted);">-></span>
+            <span class="mono" style="color: var(--accent);"><%= change.to %></span>
+          </div>
+        <% }) %>
+      </div>
+    </div>
+    <% } %>
+
+    <% if (addedList.length > 0) { %>
+    <div style="padding: 0.75rem 1rem; border-bottom: 1px solid var(--border-secondary);">
+      <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.5rem;">Added</div>
+      <div style="display: flex; flex-wrap: wrap; gap: 0.3rem;">
+        <% addedList.forEach(function(pkgName) { %>
+          <a href="/packages/<%= encodeURIComponent(pkgName) %>" class="badge badge-new" style="font-family: var(--font-mono); font-size: 0.75em; text-decoration: none;">+<%= pkgName %></a>
+        <% }) %>
+      </div>
+    </div>
+    <% } %>
+
+    <% if (removedList.length > 0) { %>
+    <div style="padding: 0.75rem 1rem;">
+      <div style="font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.5rem;">Removed</div>
+      <div style="display: flex; flex-wrap: wrap; gap: 0.3rem;">
+        <% removedList.forEach(function(pkgName) { %>
+          <span class="badge badge-removed" style="font-family: var(--font-mono); font-size: 0.75em;">-<%= pkgName %></span>
+        <% }) %>
+      </div>
+    </div>
+    <% } %>
+
+    <% if (totalChanges === 0) { %>
+    <div style="padding: 0.75rem 1rem;">
+      <span class="text-muted text-sm">No package changes - manifest confirmed packages unchanged.</span>
+    </div>
+    <% } %>
+
+  </details>
+  <% }) %>
+</div>
+<% } %>
+
+<script>
+document.querySelectorAll('time.local-time').forEach(function(el) {
+  var d = new Date(el.getAttribute('datetime'));
+  var date = d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  var time = d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  if (el.closest('td')) {
+    el.innerHTML = date + '<br>' + time;
+  } else {
+    el.textContent = date + ' \u00b7 ' + time;
+  }
+});
+document.querySelectorAll('.local-time-range').forEach(function(el) {
+  var s = new Date(el.dataset.start);
+  var e = new Date(el.dataset.end);
+  var date = e.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  var startTime = s.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  var endTime = e.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  var sDate = s.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  if (sDate === date) {
+    el.textContent = date + ' \u00b7 ' + startTime + ' \u2013 ' + endTime;
+  } else {
+    el.textContent = sDate + ' ' + startTime + ' \u2013 ' + date + ' ' + endTime;
+  }
+});
+</script>

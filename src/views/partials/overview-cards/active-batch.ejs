@@ -1,0 +1,22 @@
+<%/* -- Active Batch (full-width, if present) -------------------------------- */%>
+<% if (activeBatch) { %>
+<div class="card" data-help="overview-batch-progress">
+  <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;">
+    <a href="/batches/<%= activeBatch.id %>" style="color:inherit;text-decoration:none;">Active Batch</a>
+    <span class="badge <%= activeBatch.status === 'in_progress' ? 'badge-warning' : 'badge-info' %>"><%= activeBatch.status === 'in_progress' ? 'In Progress' : 'Planned' %></span>
+  </div>
+  <div class="card-body">
+    <div style="margin-bottom:0.5rem;font-size:0.9rem;"><a href="/batches/<%= activeBatch.id %>"><%= activeBatch.name %></a></div>
+    <% var bPct = activeBatch.totalItems > 0 ? Math.round(activeBatch.completedItems / activeBatch.totalItems * 100) : 0; %>
+    <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem;">
+      <div style="flex:1;background:var(--bg-tertiary);border-radius:4px;height:8px;overflow:hidden;">
+        <div style="width:<%= bPct %>%;height:100%;background:<%= bPct === 100 ? 'var(--green)' : '#6495ed' %>;border-radius:4px;"></div>
+      </div>
+      <span class="text-sm text-muted"><%= activeBatch.completedItems %>/<%= activeBatch.totalItems %></span>
+    </div>
+    <% if (activeBatch.nextPackage) { %>
+      <div class="text-sm text-muted">Next: <strong><%= activeBatch.nextPackage %></strong></div>
+    <% } %>
+  </div>
+</div>
+<% } %>

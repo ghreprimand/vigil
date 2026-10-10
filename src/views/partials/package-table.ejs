@@ -1,0 +1,142 @@
+<%
+// Compute next direction for each column (toggle if active, else use natural default)
+const sortDir = (col, natural) => sort === col ? (dir === 'asc' ? 'desc' : 'asc') : natural;
+const arrow = (col) => sort === col ? (dir === 'asc' ? ' ^' : ' v') : '';
+const activeClass = (col) => sort === col ? 'sort-active' : '';
+const sortVals = (col, natural) => JSON.stringify({ sort: col, dir: sortDir(col, natural), page: '1' });
+const syncInputs = (col, natural) => {
+  const nd = sortDir(col, natural);
+  return `document.getElementById('pkg-dir').value='${nd}';document.querySelector('[name=sort]').value='${col}';document.getElementById('pkg-page').value='1'`;
+};
+%>
+<table class="data-table">
+  <thead>
+    <tr>
+      <th class="<%= activeClass('name') %>" data-help="packages-col-name" data-tooltip="Package name as registered in pacman.">
+        <a href="#" class="sort-link"
+           hx-get="/partials/package-table"
+           hx-target="#package-table"
+           hx-include="[name='q'],[name='group'],[name='status']"
+           hx-vals='<%- sortVals("name", "asc") %>'
+           hx-on::before-request="<%= syncInputs('name', 'asc') %>">Name<%= arrow('name') %></a>
+      </th>
+      <th class="<%= activeClass('version') %>" data-help="packages-col-version" data-tooltip="Currently installed version on this system.">
+        <a href="#" class="sort-link"
+           hx-get="/partials/package-table"
+           hx-target="#package-table"
+           hx-include="[name='q'],[name='group'],[name='status']"
+           hx-vals='<%- sortVals("version", "asc") %>'
+           hx-on::before-request="<%= syncInputs('version', 'asc') %>">Installed<%= arrow('version') %></a>
+      </th>
+      <th class="<%= activeClass('upstream') %>" data-help="packages-col-latest" data-tooltip="Newest version found by the upstream monitoring workers. '-' means no upstream source is configured yet.">
+        <a href="#" class="sort-link"
+           hx-get="/partials/package-table"
+           hx-target="#package-table"
+           hx-include="[name='q'],[name='group'],[name='status']"
+           hx-vals='<%- sortVals("upstream", "desc") %>'
+           hx-on::before-request="<%= syncInputs('upstream', 'desc') %>">Latest Upstream<%= arrow('upstream') %></a>
+      </th>
+      <th class="<%= activeClass('status') %>" data-help="packages-col-status" data-tooltip="current = up-to-date with latest known upstream. outdated = newer version available. no upstream = not monitored.">
+        <a href="#" class="sort-link"
+           hx-get="/partials/package-table"
+           hx-target="#package-table"
+           hx-include="[name='q'],[name='group'],[name='status']"
+           hx-vals='<%- sortVals("status", "asc") %>'
+           hx-on::before-request="<%= syncInputs('status', 'asc') %>">Status<%= arrow('status') %></a>
+      </th>
+    </tr>
+  </thead>
+  <tbody>
+    <% if (packages.length === 0) { %>
+      <tr><td colspan="4" class="empty-state"><p>No packages match this filter.</p></td></tr>
+    <% } %>
+    <% packages.forEach(function(pkg) { %>
+      <tr>
+        <td>
+          <a href="/packages/<%= encodeURIComponent(pkg.name) %>" class="pkg-name"><%= pkg.name %></a>
+          <% if (pkg.description) { %>
+            <span class="pkg-desc"><%= pkg.description.substring(0, 80) %></span>
+          <% } %>
+        </td>
+        <td class="mono"><%= pkg.version %></td>
+        <td class="mono">
+          <% if (pkg.upstream) { %>
+            <% if (pkg.upstream.isNewer) { %>
+              <span class="badge badge-outdated"><%= pkg.upstream.upstreamVersion %></span>
+            <% } else { %>
+              <span class="text-muted"><%= pkg.upstream.upstreamVersion %></span>
+            <% } %>
+          <% } else { %>
+            <span class="text-muted">&mdash;</span>
+          <% } %>
+        </td>
+        <td>
+          <% if (pkg.watchedAt) { %>
+            <span class="badge" style="background:rgba(100,149,237,0.15);color:#6495ed;border:1px solid rgba(100,149,237,0.3);font-size:0.7rem;"></span>
+          <% } %>
+          <% if (pkg.activeAdvisoryCount > 0) { %>
+            <span class="badge badge-advisory-warning" data-help="packages-badge-advisory" data-tooltip="<%= pkg.activeAdvisoryCount %> active advisory<%= pkg.activeAdvisoryCount > 1 ? ' warnings' : '' %>"><%= pkg.activeAdvisoryCount %> adv</span>
+          <% } %>
+          <% if (pkg.openCveCount > 0) { %>
+            <span class="badge badge-critical"><%= pkg.openCveCount %> CVE<%= pkg.openCveCount > 1 ? 's' : '' %></span>
+          <% } %>
+          <% if (pkg.deferredAt && pkg.upstream && pkg.upstream.isNewer) { %>
+            <span class="badge badge-deferred" data-help="packages-badge-deferred">deferred</span>
+          <% } else if (pkg.pinnedAt && pkg.upstream && pkg.upstream.isNewer) { %>
+            <span class="badge badge-pinned" data-help="packages-badge-pinned">pinned</span>
+          <% } else if (pkg.upstream && pkg.upstream.isNewer) { %>
+            <span class="badge badge-outdated">outdated</span>
+          <% } else if (pkg.upstream && !pkg.upstream.isNewer) { %>
+            <span class="badge badge-current">current</span>
+          <% } %>
+          <% if (pkg.removedAt) { %>
+            <span class="badge badge-removed" data-help="packages-badge-removed">removed</span>
+          <% } %>
+        </td>
+      </tr>
+    <% }) %>
+  </tbody>
+</table>
+<% if (packages.length > 0) { %>
+<script>document.getElementById('nav-updated').textContent='Updated '+new Date().toLocaleTimeString();</script>
+<div class="table-footer">
+  <span class="count">Showing <%= packages.length %> of <%= totalFiltered %> packages</span>
+  <% if (totalPages > 1) { %>
+  <nav class="pagination">
+    <% if (currentPage > 1) { %>
+      <a href="#" class="btn-page"
+         hx-get="/partials/package-table"
+         hx-target="#package-table"
+         hx-include="[name='q'],[name='group'],[name='status']"
+         hx-vals='<%- JSON.stringify({page: currentPage - 1, sort, dir}) %>'
+         hx-on::before-request="document.getElementById('pkg-page').value='<%= currentPage - 1 %>'"
+         hx-push-url="false">&laquo;</a>
+    <% } %>
+    <% for (let p = 1; p <= totalPages; p++) { %>
+      <% if (p === currentPage) { %>
+        <span class="btn-page active"><%= p %></span>
+      <% } else if (Math.abs(p - currentPage) <= 2 || p === 1 || p === totalPages) { %>
+        <a href="#" class="btn-page"
+           hx-get="/partials/package-table"
+           hx-target="#package-table"
+           hx-include="[name='q'],[name='group'],[name='status']"
+           hx-vals='<%- JSON.stringify({page: p, sort, dir}) %>'
+           hx-on::before-request="document.getElementById('pkg-page').value='<%= p %>'"
+           hx-push-url="false"><%= p %></a>
+      <% } else if (Math.abs(p - currentPage) === 3) { %>
+        <span class="ellipsis">&hellip;</span>
+      <% } %>
+    <% } %>
+    <% if (currentPage < totalPages) { %>
+      <a href="#" class="btn-page"
+         hx-get="/partials/package-table"
+         hx-target="#package-table"
+         hx-include="[name='q'],[name='group'],[name='status']"
+         hx-vals='<%- JSON.stringify({page: currentPage + 1, sort, dir}) %>'
+         hx-on::before-request="document.getElementById('pkg-page').value='<%= currentPage + 1 %>'"
+         hx-push-url="false">&raquo;</a>
+    <% } %>
+  </nav>
+  <% } %>
+</div>
+<% } %>

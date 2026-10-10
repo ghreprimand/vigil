@@ -1,0 +1,33 @@
+<div class="card" data-help="overview-recent-notifications">
+  <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;">
+    <a href="/settings#notifications" style="color:inherit;text-decoration:none;">Recent Notifications</a>
+    <span class="text-muted text-sm" style="font-weight:400;">last <%= recentNotifications.length %> sent</span>
+  </div>
+  <% if (recentNotifications.length === 0) { %>
+    <div class="empty-state" style="padding:1.5rem;"><p>No notifications sent yet.</p></div>
+  <% } else { %>
+    <div class="card-body" style="padding:0;">
+      <table class="data-table" style="border:none;border-radius:0;">
+        <tbody>
+          <% recentNotifications.forEach(function(n) {
+            var badgeClass = n.type === 'cve_alert' ? 'badge-critical' :
+              n.type === 'backup_alert' ? 'badge-high' :
+              n.type === 'security_event' ? 'badge-critical' :
+              n.type.includes('digest') ? 'badge-info' : 'badge-low';
+            var typeLabel = n.type.replace(/_/g, ' ');
+            var subj = n.subject.replace(/^\[[^\]]*\]\s*/, '');
+            subj = subj.replace(/^Security:\s*/i, '');
+            subj = subj.replace(/^CRITICAL:\s*/i, '');
+            subj = subj.replace(/^New unmonitored package:\s*/i, '');
+          %>
+            <tr>
+              <td style="width:1%;white-space:nowrap;"><span class="badge <%= badgeClass %>" style="font-size:0.65rem;"><%= typeLabel %></span></td>
+              <td class="text-sm"><%= subj %></td>
+              <td class="text-sm text-muted" style="text-align:right;white-space:nowrap;width:1%;"><time class="local-time-relative" datetime="<%= new Date(n.sentAt).toISOString() %>"></time></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</div>

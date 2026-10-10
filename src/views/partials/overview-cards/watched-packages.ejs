@@ -1,0 +1,32 @@
+<%/* -- Watched Packages ------------------------------------------------------- */%>
+<div class="card" data-help="overview-watched-packages">
+  <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;">
+    <a href="/packages?filter=watched" style="color:inherit;text-decoration:none;">Watched Packages</a>
+    <span class="text-muted text-sm" style="font-weight:400;"><%= watchedPackages.length %> watched</span>
+  </div>
+  <% if (watchedPackages.length === 0) { %>
+    <div class="empty-state" style="padding:1.5rem;"><p>No watched packages. Star a package to watch it.</p></div>
+  <% } else { %>
+    <div class="card-body" style="padding:0;">
+      <table class="data-table" style="border:none;border-radius:0;">
+        <tbody>
+          <% watchedPackages.forEach(function(pkg) { %>
+            <tr>
+              <td style="width:1%;white-space:nowrap;">
+                <a href="/packages/<%= encodeURIComponent(pkg.name) %>"><%= pkg.name %></a>
+              </td>
+              <td class="text-sm text-muted" style="width:1%;white-space:nowrap;"><%= pkg.version %></td>
+              <td class="text-sm" style="text-align:right;white-space:nowrap;">
+                <% if (pkg.score > 0) { %>
+                  <span style="color:<%= pkg.score >= 25 ? 'var(--red)' : pkg.score >= 15 ? 'var(--orange)' : pkg.score >= 5 ? '#b8860b' : 'var(--green)' %>;font-weight:500;"><%= pkg.score.toFixed(0) %></span>
+                <% } else { %>
+                  <span class="text-muted">up to date</span>
+                <% } %>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</div>

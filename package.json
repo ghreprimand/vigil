@@ -1,0 +1,52 @@
+{
+  "name": "vigil",
+  "version": "0.1.0",
+  "description": "Upstream release and CVE tracking for source-built Linux systems (SQLite, zero external services)",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ghreprimand/vigil.git"
+  },
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:migrate:run": "node dist/scripts/migrate.js",
+    "db:studio": "drizzle-kit studio",
+    "test": "tsx --test tests/cve-matcher.test.ts tests/cve-regression.test.ts tests/normalize-version.test.ts"
+  },
+  "dependencies": {
+    "@fastify/cookie": "^11.0.2",
+    "@fastify/formbody": "^8.0.2",
+    "@fastify/rate-limit": "^10.2.1",
+    "@fastify/session": "^11.0.2",
+    "@fastify/static": "^10.1.6",
+    "@fastify/view": "^11.1.1",
+    "better-sqlite3": "^12.11.1",
+    "croner": "^9.0.0",
+    "dotenv": "^16.4.7",
+    "drizzle-orm": "^0.45.4",
+    "ejs": "^3.1.10",
+    "fastify": "^5.2.1",
+    "fastify-plugin": "^5.1.0",
+    "isomorphic-dompurify": "^3.5.1",
+    "marked": "^17.0.3",
+    "nodemailer": "^10.1.0",
+    "openid-client": "^6.3.3",
+    "pino": "^9.6.0",
+    "pino-pretty": "^13.0.0",
+    "semver": "^7.7.1"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/ejs": "^3.1.5",
+    "@types/node": "^22.13.4",
+    "@types/semver": "^7.5.8",
+    "drizzle-kit": "^0.31.11",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}

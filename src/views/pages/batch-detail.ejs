@@ -1,0 +1,71 @@
+<div class="page-header" style="margin-bottom:0.75rem;">
+  <div style="display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;">
+    <a href="/batches" class="btn btn-sm" style="text-decoration:none;">&larr; All Batches</a>
+    <h1 style="margin:0;"><%= batch.name %></h1>
+    <% if (batch.status === 'completed') { %>
+      <span class="badge badge-success" data-help="batch-status-completed">Completed</span>
+    <% } else if (batch.status === 'in_progress') { %>
+      <span class="badge badge-warning" data-help="batch-status-in-progress">In Progress</span>
+    <% } else { %>
+      <span class="badge badge-info" data-help="batch-status-planned">Planned</span>
+    <% } %>
+  </div>
+  <% if (batch.description) { %>
+    <span class="subtitle"><%= batch.description %></span>
+  <% } %>
+</div>
+
+<%/* -- Progress Bar ---------------------------------------------------- */%>
+<div class="card" style="margin-bottom:1rem;">
+  <div class="card-body" style="padding:0.75rem 1rem;">
+    <% var pct = batch.totalItems > 0 ? Math.round(batch.completedItems / batch.totalItems * 100) : 0; %>
+    <div style="display:flex;align-items:center;gap:1rem;margin-bottom:0.5rem;">
+      <div data-help="batch-progress-bar" style="flex:1;height:10px;background:var(--bg-tertiary);border-radius:5px;overflow:hidden;">
+        <div style="width:<%= pct %>%;height:100%;background:<%= pct === 100 ? '#4ade80' : '#6495ed' %>;border-radius:5px;transition:width 0.3s;"></div>
+      </div>
+      <span style="font-size:0.9rem;font-weight:600;min-width:4rem;text-align:right;">
+        <%= batch.completedItems %>/<%= batch.totalItems %>
+      </span>
+    </div>
+    <div data-help="batch-dates" style="display:flex;gap:1rem;font-size:0.8rem;color:var(--text-muted);flex-wrap:wrap;">
+      <span data-help="batch-created-date">Created: <%= batch.createdAt.toISOString().slice(0, 10) %></span>
+      <% if (batch.completedAt) { %>
+        <span data-help="batch-completed-date">Completed: <%= batch.completedAt.toISOString().slice(0, 10) %></span>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+<%/* -- Actions --------------------------------------------------------- */%>
+<div style="display:flex;gap:0.5rem;margin-bottom:1rem;flex-wrap:wrap;">
+  <% if (batch.status !== 'completed') { %>
+    <form method="post" action="/batches/<%= batch.id %>/complete" style="display:inline;">
+      <button type="submit" class="btn btn-sm btn-primary" data-help="batch-complete" onclick="return confirm('Mark entire batch as completed?')">Complete Batch</button>
+    </form>
+  <% } %>
+  <button class="btn btn-sm" data-help="batch-copy-markdown" onclick="copyMarkdown()">Copy as Markdown</button>
+  <form method="post" action="/batches/<%= batch.id %>/delete" style="display:inline;margin-left:auto;">
+    <button type="submit" class="btn btn-sm btn-danger" data-help="batch-delete" onclick="return confirm('Delete this batch? This cannot be undone.')">Delete Batch</button>
+  </form>
+</div>
+
+<%/* -- Items List ------------------------------------------------------ */%>
+<div id="batch-items">
+  <%- include('../partials/batch-items.ejs', { batch }) %>
+</div>
+
+<script>
+async function copyMarkdown() {
+  try {
+    var res = await fetch('/batches/<%= batch.id %>/markdown');
+    var text = await res.text();
+    await navigator.clipboard.writeText(text);
+    var btn = event.target;
+    var orig = btn.textContent;
+    btn.textContent = 'Copied!';
+    setTimeout(function() { btn.textContent = orig; }, 2000);
+  } catch(e) {
+    alert('Failed to copy: ' + e.message);
+  }
+}
+</script>

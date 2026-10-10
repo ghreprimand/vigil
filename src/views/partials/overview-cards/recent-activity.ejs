@@ -1,0 +1,22 @@
+<div class="card">
+  <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;">
+    <a href="/activity" style="color:inherit;text-decoration:none;" data-help="overview-recent-activity">Recent Activity</a>
+    <span class="text-muted text-sm" style="font-weight:400;">last <%= recentActivity.length %> events</span>
+  </div>
+  <% if (recentActivity.length === 0) { %>
+    <div class="empty-state"><p>No activity recorded yet.</p></div>
+  <% } else { %>
+    <div class="card-body" style="padding:0;">
+      <table class="data-table" style="border:none;border-radius:0;">
+        <tbody>
+          <% recentActivity.forEach(function(a) { %>
+            <tr>
+              <td class="text-secondary text-sm" style="white-space:nowrap;width:1%;"><%= fmtDateTime(a.createdAt) %></td>
+              <td class="text-sm"><%= a.message %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</div>

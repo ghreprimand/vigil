@@ -1,0 +1,109 @@
+<div class="breadcrumbs">
+  <a href="/advisories">Advisories</a>
+  <span class="sep">/</span>
+  <span><%= advisory.title %></span>
+</div>
+
+<div class="page-header" style="margin-bottom:0.5rem;">
+  <h1><%= advisory.title %></h1>
+  <span class="badge badge-advisory-<%= advisory.severity %>" data-help="advisory-severity-badge" style="font-size:0.8rem;"><%= advisory.severity %></span>
+  <% if (advisory.resolvedAt) { %>
+    <span class="badge badge-current" data-help="advisory-resolved-badge">resolved</span>
+  <% } %>
+</div>
+
+<div style="display:flex;gap:0.5rem;margin-bottom:1.25rem;">
+  <a href="/advisories/<%= advisory.id %>/edit" class="btn btn-sm" data-help="advisory-edit">Edit</a>
+  <% if (!advisory.resolvedAt) { %>
+    <form method="POST" action="/advisories/<%= advisory.id %>/resolve" style="display:inline;">
+      <button type="submit" class="btn btn-sm" data-help="advisory-mark-resolved" style="color:var(--green);border-color:rgba(63,185,80,0.3);">Mark Resolved</button>
+    </form>
+  <% } %>
+  <button type="button" class="btn btn-sm btn-danger" data-help="advisory-delete" onclick="document.getElementById('delete-modal').style.display='flex'">Delete</button>
+</div>
+
+<%/* Delete confirmation modal */%>
+<div id="delete-modal" data-help="advisory-delete-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:100;align-items:center;justify-content:center;"
+     onclick="if(event.target===this)this.style.display='none'">
+  <div class="card" style="width:480px;max-width:90vw;">
+    <div class="card-header">Delete Advisory</div>
+    <div class="card-body">
+      <p style="margin-bottom:0.75rem;">Are you sure you want to delete <strong><%= advisory.title %></strong>?</p>
+      <form method="POST" action="/advisories/<%= advisory.id %>/delete">
+        <% if (kbDoc) { %>
+          <div style="margin-bottom:0.75rem;padding:0.6rem 0.75rem;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:var(--radius);">
+            <label data-help="advisory-delete-kb-checkbox" style="display:flex;align-items:center;gap:0.5rem;cursor:pointer;font-size:0.875rem;">
+              <input type="checkbox" name="delete_kb" value="1">
+              <span>Also delete linked KB article: <strong><%= kbDoc.title %></strong></span>
+            </label>
+          </div>
+        <% } %>
+        <div style="display:flex;gap:0.5rem;justify-content:flex-end;">
+          <button type="button" class="btn btn-sm" data-help="advisory-delete-cancel" onclick="document.getElementById('delete-modal').style.display='none'">Cancel</button>
+          <button type="submit" class="btn btn-sm btn-danger" data-help="advisory-delete-confirm">Delete</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<% const hasDescription = advisory.description && advisory.description.trim(); %>
+<% const hasKbOrPkgs = kbDoc || linkedPackages.length > 0; %>
+
+<% if (hasDescription && hasKbOrPkgs) { %>
+<div class="grid-2" style="grid-template-columns: 1fr 280px;">
+<% } %>
+
+  <% if (hasDescription) { %>
+  <div class="card" data-help="advisory-description" style="margin-bottom:0.75rem;">
+    <div class="card-header">Note</div>
+    <div class="card-body md-body">
+      <%- renderMarkdown(advisory.description) %>
+    </div>
+  </div>
+  <% } %>
+
+  <% if (hasKbOrPkgs) { %>
+  <div>
+    <% if (kbDoc) { %>
+    <div class="card" data-help="advisory-kb-article" style="margin-bottom:0.75rem;">
+      <div class="card-header">KB Article</div>
+      <div class="card-body">
+        <a href="/kb/<%= kbDoc.slug %>" style="font-size:1rem;"><%= kbDoc.title %></a>
+        <div style="margin-top:0.5rem;">
+          <a href="/kb/<%= kbDoc.slug %>" class="btn btn-sm btn-primary" data-help="advisory-view-full-article">View Full Article</a>
+        </div>
+      </div>
+    </div>
+    <% } %>
+
+    <% if (linkedPackages.length > 0) { %>
+    <div class="card" data-help="advisory-affected-packages" style="margin-bottom:0.75rem;">
+      <div class="card-header">Affected Packages</div>
+      <div class="card-body">
+        <ul class="dep-list" style="flex-direction:column;">
+          <% linkedPackages.forEach(function(pkg) { %>
+            <li><a href="/packages/<%= encodeURIComponent(pkg.name) %>"><%= pkg.name %> <span class="text-muted mono" style="font-size:0.75rem;"><%= pkg.version %></span></a></li>
+          <% }) %>
+        </ul>
+      </div>
+    </div>
+    <% } %>
+
+    <div class="card">
+      <div class="card-body">
+        <table class="info-table">
+          <tr data-help="advisory-created"><td>Created</td><td><%= fmtDateTime(advisory.createdAt) %></td></tr>
+          <tr data-help="advisory-updated"><td>Updated</td><td><%= fmtDateTime(advisory.updatedAt) %></td></tr>
+          <% if (advisory.resolvedAt) { %>
+            <tr data-help="advisory-resolved-date"><td>Resolved</td><td><%= fmtDateTime(advisory.resolvedAt) %></td></tr>
+          <% } %>
+        </table>
+      </div>
+    </div>
+  </div>
+  <% } %>
+
+<% if (hasDescription && hasKbOrPkgs) { %>
+</div>
+<% } %>

@@ -1,0 +1,150 @@
+
+<div class="stat-grid">
+  <div class="stat-card" data-help="updates-total-outdated">
+    <div class="stat-value <%= totalOutdated > 0 ? 'text-orange' : 'text-green' %>"><%= totalOutdated %></div>
+    <div class="stat-label" data-tooltip="Packages with a newer upstream version and a computed staleness score. Equal to the Packages tab outdated count once all scores are calculated.">Outdated</div>
+  </div>
+  <div class="stat-card" data-help="updates-with-cves">
+    <div class="stat-value <%= securityCount > 0 ? 'text-red' : 'text-green' %>"><%= securityCount %></div>
+    <div class="stat-label" data-tooltip="Packages that are BOTH outdated AND have open security CVEs. This is the intersection - not the same as total Open CVEs on the Packages tab, which counts CVEs regardless of update status.">Outdated with CVEs</div>
+    <% if (securityCount > 0) { %>
+      <div class="stat-detail">Needs security update</div>
+    <% } %>
+  </div>
+  <div class="stat-card" data-help="updates-high-priority">
+    <div class="stat-value <%= highPriorityCount > 0 ? 'text-orange' : '' %>"><%= highPriorityCount %></div>
+    <div class="stat-label" data-tooltip="Outdated packages with staleness score >= 20. Update these first.">High Priority</div>
+    <div class="stat-detail">Score &ge; 20</div>
+  </div>
+  <div class="stat-card" data-help="updates-avg-score">
+    <div class="stat-value"><%= avgScore %></div>
+    <div class="stat-label" data-tooltip="Mean staleness score across all outdated packages. A rising average means the system is falling behind on updates.">Avg Staleness Score</div>
+  </div>
+  <% if (pinnedCount > 0) { %>
+  <div class="stat-card" data-help="updates-pinned-count" style="cursor:pointer;"
+       hx-get="/partials/updates-table"
+       hx-target="#updates-table"
+       hx-include="[name='q'],[name='sort'],[name='dir'],[name='min_score']"
+       hx-vals='{"category":"pinned","page":"1"}'
+       onclick="document.querySelector('[name=category].filter-select').value='pinned'">
+    <div class="stat-value text-muted"><%= pinnedCount %></div>
+    <div class="stat-label" data-tooltip="Packages explicitly pinned to their current version. Excluded from the outdated count.">Pinned</div>
+  </div>
+  <% } %>
+  <% if (deferredCount > 0) { %>
+  <div class="stat-card" data-help="updates-deferred-count" style="cursor:pointer;"
+       hx-get="/partials/updates-table"
+       hx-target="#updates-table"
+       hx-include="[name='q'],[name='sort'],[name='dir'],[name='min_score']"
+       hx-vals='{"category":"deferred","page":"1"}'
+       onclick="document.querySelector('[name=category].filter-select').value='deferred'">
+    <div class="stat-value text-muted"><%= deferredCount %></div>
+    <div class="stat-label" data-tooltip="Packages deferred from updates. Upstream and CVE monitoring continues.">Deferred</div>
+  </div>
+  <% } %>
+</div>
+
+<div class="toolbar">
+  <input type="search"
+         class="search-input"
+         name="q"
+         placeholder="Search outdated packages..."
+         hx-get="/partials/updates-table"
+         hx-trigger="input changed delay:300ms, search"
+         hx-target="#updates-table"
+         hx-include="[name='sort'],[name='dir'],[name='category'],[name='min_score']"
+         hx-vals='{"page": "1"}'
+         value="<%= query %>">
+  <div data-tooltip="Filter by package group. 'Security' shows only outdated packages with open CVEs.">
+  <select name="category" class="filter-select" data-help="updates-category-filter"
+          hx-get="/partials/updates-table"
+          hx-trigger="change"
+          hx-target="#updates-table"
+          hx-include="[name='q'],[name='sort'],[name='dir'],[name='min_score']"
+          hx-vals='{"page": "1"}'>
+    <option value="all" <%= category === 'all' ? 'selected' : '' %>>All categories</option>
+    <option value="security" <%= category === 'security' ? 'selected' : '' %>>Security (has CVEs)</option>
+    <option value="kde" <%= category === 'kde' ? 'selected' : '' %>>KDE</option>
+    <option value="core" <%= category === 'core' ? 'selected' : '' %>>Core (LFS/BLFS)</option>
+    <option value="apps" <%= category === 'apps' ? 'selected' : '' %>>Apps</option>
+    <option value="toolchain" <%= category === 'toolchain' ? 'selected' : '' %>>Toolchain</option>
+    <option value="pinned" <%= category === 'pinned' ? 'selected' : '' %>>Pinned (excluded)</option>
+    <option value="deferred" <%= category === 'deferred' ? 'selected' : '' %>>Deferred (excluded)</option>
+  </select>
+  </div>
+  <div data-tooltip="Only show packages above this staleness score threshold.">
+  <select name="min_score" class="filter-select" data-help="updates-min-score"
+          hx-get="/partials/updates-table"
+          hx-trigger="change"
+          hx-target="#updates-table"
+          hx-include="[name='q'],[name='sort'],[name='dir'],[name='category']"
+          hx-vals='{"page": "1"}'>
+    <option value="0" <%= minScore === '0' ? 'selected' : '' %>>Any score</option>
+    <option value="5" <%= minScore === '5' ? 'selected' : '' %>>Score &ge; 5</option>
+    <option value="10" <%= minScore === '10' ? 'selected' : '' %>>Score &ge; 10</option>
+    <option value="20" <%= minScore === '20' ? 'selected' : '' %>>Score &ge; 20</option>
+  </select>
+  </div>
+  <select name="sort" class="filter-select"
+          hx-get="/partials/updates-table"
+          hx-trigger="change"
+          hx-target="#updates-table"
+          hx-include="[name='q'],[name='category'],[name='min_score']"
+          hx-vals='{"page": "1", "dir": "desc"}'
+          hx-on::before-request="document.getElementById('upd-dir').value='desc'">
+    <option value="score" <%= sort === 'score' ? 'selected' : '' %>>Score</option>
+    <option value="name" <%= sort === 'name' ? 'selected' : '' %>>Name</option>
+    <option value="days" <%= sort === 'days' ? 'selected' : '' %>>Days behind</option>
+    <option value="cves" <%= sort === 'cves' ? 'selected' : '' %>>CVE count</option>
+  </select>
+  <input type="hidden" id="upd-dir" name="dir" value="<%= dir %>">
+</div>
+
+<div id="updates-table">
+  <%- include('../partials/updates-table.ejs', { updates, totalOutdated, totalPages, currentPage, category }) %>
+</div>
+
+<%/* Defer modal - shared across all Defer buttons on this page */%>
+<dialog id="defer-modal" style="border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);padding:1.5rem;min-width:320px;max-width:480px;">
+  <h3 style="margin:0 0 1rem;">Defer Package</h3>
+  <div style="display:flex;flex-direction:column;gap:0.75rem;">
+    <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">
+      <label data-help="updates-defer-duration-label" style="font-size:0.85rem;color:var(--text-muted);">Defer for:</label>
+      <select id="defer-modal-duration" class="filter-select" data-help="updates-defer-duration-select" style="font-size:0.85rem;" onchange="document.getElementById('defer-modal-custom-wrap').style.display=this.value==='custom'?'flex':'none'">
+        <option value="7">1 week (7 days)</option>
+        <option value="30" selected>1 month (30 days)</option>
+        <option value="90">3 months (90 days)</option>
+        <option value="custom">Custom...</option>
+      </select>
+      <div id="defer-modal-custom-wrap" style="display:none;">
+        <input id="defer-modal-custom-days" type="number" min="1" max="3650" value="30" class="form-input" data-help="updates-defer-custom-days" style="width:80px;font-size:0.85rem;padding:0.25rem 0.5rem;" placeholder="days">
+      </div>
+    </div>
+    <textarea id="defer-modal-reason" class="form-input" data-help="updates-defer-reason" rows="3" style="font-size:0.85rem;resize:vertical;" placeholder="Reason (optional)"></textarea>
+    <div style="display:flex;gap:0.5rem;justify-content:flex-end;">
+      <button class="btn" onclick="document.getElementById('defer-modal').close()">Cancel</button>
+      <button class="btn btn-primary" id="defer-modal-submit">Confirm Defer</button>
+    </div>
+  </div>
+</dialog>
+<script>
+let _deferModalPkg = '';
+function openDeferModal(pkgName) {
+  _deferModalPkg = pkgName;
+  document.getElementById('defer-modal-reason').value = '';
+  document.getElementById('defer-modal-duration').value = '30';
+  document.getElementById('defer-modal-custom-wrap').style.display = 'none';
+  document.getElementById('defer-modal').showModal();
+}
+document.getElementById('defer-modal-submit').addEventListener('click', function() {
+  const dur = document.getElementById('defer-modal-duration').value;
+  const days = dur === 'custom' ? document.getElementById('defer-modal-custom-days').value : dur;
+  const reason = document.getElementById('defer-modal-reason').value;
+  htmx.ajax('POST', '/packages/' + encodeURIComponent(_deferModalPkg) + '/defer', {
+    target: '#pkg-row-' + _deferModalPkg,
+    swap: 'delete',
+    values: { 'defer-days': days, 'defer-reason': reason }
+  });
+  document.getElementById('defer-modal').close();
+});
+</script>

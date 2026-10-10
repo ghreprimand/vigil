@@ -1,0 +1,438 @@
+
+<%/* -- Theme Picker ------------------------------------------------------ */%>
+<div class="card" style="margin-bottom: 1rem;" data-help="settings-theme">
+  <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;">
+    <span>Theme</span>
+    <span id="theme-current-name" class="text-muted text-sm" style="font-weight:400;"></span>
+  </div>
+  <div class="card-body" id="theme-picker">
+    <script>
+    (function() {
+      const container = document.getElementById('theme-picker');
+      const label = document.getElementById('theme-current-name');
+      const currentId = getThemeId();
+
+      // Show current theme name
+      const cur = themeList.find(t => t.id === currentId);
+      if (cur) label.textContent = cur.name;
+
+      themeCategories.forEach(cat => {
+        const themes = themeList.filter(t => t.category === cat);
+        if (!themes.length) return;
+
+        const heading = document.createElement('div');
+        heading.style.cssText = 'font-size:0.75rem;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.05em;margin:0.75rem 0 0.4rem;';
+        if (cat === 'Default') heading.style.marginTop = '0';
+        heading.textContent = cat;
+        container.appendChild(heading);
+
+        const grid = document.createElement('div');
+        grid.style.cssText = 'display:flex;flex-wrap:wrap;gap:0.5rem;';
+        container.appendChild(grid);
+
+        themes.forEach(t => {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.title = t.name;
+          btn.style.cssText = `
+            width: 48px; height: 32px; border-radius: 6px; cursor: pointer;
+            border: 2px solid ${t.id === currentId ? t.accent : t.border};
+            background: linear-gradient(135deg, ${t.bg} 40%, ${t.secondary} 60%, ${t.accent} 100%);
+            transition: border-color 150ms ease, transform 150ms ease;
+            position: relative;
+          `;
+          if (t.id === currentId) {
+            btn.style.transform = 'scale(1.1)';
+            btn.style.boxShadow = '0 0 8px ' + t.accent + '60';
+          }
+          btn.addEventListener('mouseenter', () => { btn.style.borderColor = t.accent; btn.style.transform = 'scale(1.08)'; });
+          btn.addEventListener('mouseleave', () => {
+            if (t.id !== getThemeId()) { btn.style.borderColor = t.border; btn.style.transform = 'scale(1)'; }
+          });
+          btn.addEventListener('click', () => {
+            applyTheme(t.id);
+            label.textContent = t.name;
+            // Reset all swatch borders
+            grid.parentElement.querySelectorAll('button').forEach(b => {
+              b.style.transform = 'scale(1)';
+              b.style.boxShadow = 'none';
+            });
+            // Highlight selected - re-query since theme changed
+            btn.style.borderColor = t.accent;
+            btn.style.transform = 'scale(1.1)';
+            btn.style.boxShadow = '0 0 8px ' + t.accent + '60';
+          });
+          grid.appendChild(btn);
+        });
+      });
+    })();
+    </script>
+  </div>
+</div>
+
+<%/* -- System Status + API Key -------------------------------------------- */%>
+<div class="grid-2" style="margin-bottom: 1rem;">
+  <div class="card" data-help="settings-system-status">
+    <div class="card-header">System Status</div>
+    <div class="card-body">
+      <table class="info-table">
+        <tr data-help="settings-total-packages"><td>Total Packages</td><td><strong><%= stats.packageCount %></strong></td></tr>
+        <tr data-help="settings-last-push"><td>Last Manifest Push</td><td><%= stats.lastPush ? fmtDateTime(stats.lastPush) : 'Never' %></td></tr>
+        <tr data-help="settings-upstream-sources"><td>Upstream Sources</td><td><%= stats.sourceCount %></td></tr>
+        <tr data-help="settings-open-cves"><td>Open CVEs</td><td><%= stats.openCveCount %></td></tr>
+      </table>
+    </div>
+  </div>
+
+  <div class="card" data-help="settings-api-key">
+    <div class="card-header">API Key</div>
+    <div class="card-body">
+      <p>Key ID for manifest push:</p>
+      <pre data-help="settings-api-key-display"><code><%= apiKeyId %></code></pre>
+      <p class="text-muted text-sm">The API secret is stored in the server .env file.</p>
+    </div>
+  </div>
+</div>
+
+<%/* -- Background Workers --------------------------------------------------- */%>
+<%
+var workerDescriptions = {
+  'github-release':   'Check GitHub repos for new releases',
+  'gitlab-release':   'Check GitLab repos for new releases',
+  'kde-release':      'Check KDE Invent for Plasma/Frameworks/Gear releases',
+  'gnu-release':      'Check GNU FTP for new package versions',
+  'kernel-release':   'Check kernel.org for new kernel releases',
+  'pypi-release':     'Check PyPI for Python package updates',
+  'generic-release':  'Scrape HTML directories for version strings',
+  'nvd-cve':          'Fetch new/updated CVEs from NIST NVD',
+  'osv-cve':          'Fetch vulnerabilities from OSV.dev',
+  'arch-security':    'Check Arch Linux security advisories',
+  'staleness-scorer': 'Recalculate staleness scores for all packages',
+  'digest-mailer':    'Send the weekly email digest',
+  'blfs-errata':      'Check BLFS errata for package advisories',
+  'flathub-release':  'Check Flathub for Flatpak app updates',
+};
+%>
+<div class="card" style="margin-bottom: 1rem;" data-help="settings-workers-table">
+  <div class="card-header">Background Workers</div>
+  <table class="data-table" style="border: none; border-radius: 0;">
+    <thead>
+      <tr>
+        <th data-help="settings-worker-name-col">Worker</th>
+        <th data-help="settings-worker-desc-col">Description</th>
+        <th data-help="settings-worker-schedule-col">Schedule</th>
+        <th data-help="settings-worker-status-col">Status</th>
+        <th data-help="settings-worker-run-col">Run Now</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% workers.forEach(function(w) { %>
+        <tr>
+          <td class="mono" style="white-space:nowrap;"><%= w.name %></td>
+          <td class="text-secondary text-sm"><%= workerDescriptions[w.name] || '' %></td>
+          <td class="mono"><%= w.cron %></td>
+          <td>
+            <% if (w.enabled) { %>
+              <span class="badge badge-current" data-help="settings-worker-active-badge">active</span>
+            <% } else { %>
+              <span class="badge badge-removed" data-help="settings-worker-disabled-badge">disabled</span>
+            <% } %>
+          </td>
+          <td>
+            <% if (w.enabled) { %>
+              <button class="btn btn-sm" data-help="settings-worker-run-btn"
+                      hx-post="/settings/workers/<%= w.name %>/trigger"
+                      hx-target="#worker-result-<%= w.name.replace(/-/g,'_') %>"
+                      hx-swap="innerHTML">Run</button>
+              <span id="worker-result-<%= w.name.replace(/-/g,'_') %>" style="margin-left:0.4rem;"></span>
+            <% } else { %>
+              <span class="text-muted text-sm">-</span>
+            <% } %>
+          </td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</div>
+
+<%/* -- Maintenance Actions -------------------------------------------------- */%>
+<div class="card" style="margin-bottom: 1rem;" data-help="settings-maintenance-actions">
+  <div class="card-header">Maintenance Actions</div>
+  <div class="card-body">
+    <p class="text-muted text-sm" style="margin-bottom:1rem;">Run server-side maintenance jobs on demand. Output is captured and shown below.</p>
+
+    <div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-bottom:1rem;">
+      <div>
+        <button class="btn" data-help="settings-detect-upstream"
+                hx-post="/settings/detect-upstream"
+                hx-target="#maintenance-output"
+                hx-swap="innerHTML"
+                hx-indicator="#maintenance-spinner">Detect Upstream</button>
+        <span class="text-muted text-sm" style="display:block;margin-top:0.2rem;">Auto-detect upstream sources for unmapped packages</span>
+      </div>
+      <div>
+        <button class="btn" data-help="settings-resolve-cves"
+                hx-post="/settings/resolve-cves"
+                hx-target="#maintenance-output"
+                hx-swap="innerHTML"
+                hx-indicator="#maintenance-spinner">Resolve CVEs</button>
+        <span class="text-muted text-sm" style="display:block;margin-top:0.2rem;">Sweep and clear CVEs for updated packages</span>
+      </div>
+      <div>
+        <button class="btn"
+                hx-post="/settings/recalc-staleness"
+                hx-target="#maintenance-output"
+                hx-swap="innerHTML"
+                hx-indicator="#maintenance-spinner">Recalculate Staleness</button>
+        <span class="text-muted text-sm" style="display:block;margin-top:0.2rem;">Recompute staleness scores for all packages</span>
+      </div>
+    </div>
+
+    <span id="maintenance-spinner" class="htmx-indicator text-muted text-sm">Running...</span>
+    <div id="maintenance-output"></div>
+  </div>
+</div>
+
+<%/* -- Email Alert Settings ----------------------------------------------- */%>
+<div class="card" style="margin-bottom: 1rem;" data-help="settings-email-alerts">
+  <div class="card-header">
+    Email Alerts
+    <% if (!smtpConfigured) { %>
+      <span class="badge badge-removed" style="margin-left:0.5rem;" data-tooltip="Set SMTP_USER and SMTP_PASS in the server .env to enable email sending.">SMTP not configured</span>
+    <% } else { %>
+      <span class="badge badge-current" style="margin-left:0.5rem;">SMTP ready</span>
+    <% } %>
+  </div>
+  <div class="card-body">
+    <% if (alertSaved) { %>
+      <div class="source-test-result source-test-ok" style="margin-bottom:1rem;">OK Alert settings saved.</div>
+    <% } %>
+    <% if (alertError) { %>
+      <div class="source-test-result source-test-error" style="margin-bottom:1rem;"><%= alertError %></div>
+    <% } %>
+    <form method="POST" action="/settings/alerts" style="max-width:640px;">
+      <div class="form-group">
+        <label class="form-label">Alert Email Address</label>
+        <input class="form-input" type="email" name="alert_email" data-help="settings-alert-email"
+               value="<%= alertSettings.email %>"
+               placeholder="you@example.com"
+               style="max-width:360px;">
+        <div class="text-muted text-sm" style="margin-top:0.25rem;">All alert types are sent to this address. Defaults to ALERT_EMAIL env if blank.</div>
+      </div>
+
+      <div style="margin: 1.25rem 0 0.5rem; font-weight: 600; font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">Alert Types</div>
+
+      <div class="alert-setting-row">
+        <label class="toggle-label">
+          <input type="checkbox" name="alert_cve_enabled" data-help="settings-toggle-cve-alerts" <%= alertSettings.cveEnabled ? 'checked' : '' %>>
+          <span>CVE Alerts</span>
+        </label>
+        <span class="text-muted text-sm">Sent immediately when new CVEs are detected matching your packages.</span>
+        <div class="alert-setting-sub">
+          <label class="form-label" style="display:inline;margin-right:0.5rem;">Min CVSS score:</label>
+          <select class="form-select" name="alert_cve_min_cvss" data-help="settings-cvss-threshold" style="width:auto;display:inline-block;">
+            <option value="4.0" <%= alertSettings.cveMinCvss <= 4.0 ? 'selected' : '' %>>4.0 - Medium+</option>
+            <option value="7.0" <%= alertSettings.cveMinCvss > 4.0 && alertSettings.cveMinCvss <= 7.0 ? 'selected' : '' %>>7.0 - High+ (default)</option>
+            <option value="9.0" <%= alertSettings.cveMinCvss > 7.0 ? 'selected' : '' %>>9.0 - Critical only</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="alert-setting-row">
+        <label class="toggle-label">
+          <input type="checkbox" name="alert_watched_enabled" data-help="settings-toggle-watched-alerts" <%= alertSettings.watchedEnabled ? 'checked' : '' %>>
+          <span>Watched Package Updates</span>
+        </label>
+        <span class="text-muted text-sm">Sent within an hour when a watched package has a new upstream version available. Watch packages from their detail page.</span>
+      </div>
+
+      <div class="alert-setting-row">
+        <label class="toggle-label">
+          <input type="checkbox" name="alert_digest_enabled" data-help="settings-toggle-digest-alerts" <%= alertSettings.digestEnabled ? 'checked' : '' %>>
+          <span>Weekly Digest</span>
+        </label>
+        <span class="text-muted text-sm">Sunday summary: new CVEs, open CVE count, top outdated packages. Sent by the digest-mailer worker (scheduled weekly).</span>
+      </div>
+
+      <div class="alert-setting-row">
+        <label class="toggle-label">
+          <input type="checkbox" name="alert_staleness_enabled" data-help="settings-toggle-staleness-alerts" <%= alertSettings.stalenessEnabled ? 'checked' : '' %>>
+          <span>Staleness Alerts</span>
+        </label>
+        <span class="text-muted text-sm">Weekly email listing all packages above a staleness threshold. Sent alongside the digest if any packages qualify.</span>
+        <div class="alert-setting-sub">
+          <label class="form-label" style="display:inline;margin-right:0.5rem;">Min staleness score:</label>
+          <select class="form-select" name="alert_staleness_min_score" data-help="settings-staleness-threshold" style="width:auto;display:inline-block;">
+            <option value="10" <%= alertSettings.stalenessMinScore <= 10 ? 'selected' : '' %>>10 - Medium+</option>
+            <option value="20" <%= alertSettings.stalenessMinScore > 10 && alertSettings.stalenessMinScore <= 20 ? 'selected' : '' %>>20 - High+ (default)</option>
+            <option value="25" <%= alertSettings.stalenessMinScore > 20 ? 'selected' : '' %>>25 - Critical only</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="alert-setting-row">
+        <label class="toggle-label">
+          <input type="checkbox" name="alert_unmapped_enabled" data-help="settings-toggle-unmapped-alerts" <%= alertSettings.unmappedEnabled ? 'checked' : '' %>>
+          <span>Unmonitored Package Alerts</span>
+        </label>
+        <span class="text-muted text-sm">One-time alert when a newly installed package has no upstream source after auto-detection. Each package is only alerted once.</span>
+      </div>
+
+      <div class="form-actions" style="margin-top:1.25rem;">
+        <button type="submit" class="btn btn-primary" data-help="settings-save-alerts">Save Alert Settings</button>
+        <button type="button" class="btn" data-help="settings-send-test-email"
+                hx-post="/settings/alerts/test"
+                hx-target="#test-email-result"
+                hx-swap="innerHTML"
+                style="margin-left:0.5rem;">Send Test Email</button>
+        <span id="test-email-result" style="margin-left:0.75rem;"></span>
+      </div>
+    </form>
+  </div>
+</div>
+
+<%/* -- Notification Deduplication Summary -------------------------------- */%>
+<div class="card" style="margin-bottom: 1rem;" data-help="settings-notification-dedup">
+  <div class="card-header">Notification Deduplication</div>
+  <div class="card-body" style="padding:0;">
+    <table class="data-table" style="border:none;border-radius:0;font-size:0.85rem;">
+      <thead>
+        <tr><th data-help="settings-dedup-type-col">Type</th><th data-help="settings-dedup-trigger-col">Trigger</th><th data-help="settings-dedup-window-col">Dedup Window</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>CVE Alert</td><td>New CVE with CVSS &ge; threshold</td><td>24 hours per CVE</td></tr>
+        <tr><td>Weekly Digest</td><td>Cron (Sunday 8am)</td><td>6 days</td></tr>
+        <tr><td>Monthly Digest</td><td>Cron (1st of month)</td><td>25 days</td></tr>
+        <tr><td>Staleness Alert</td><td>Score &ge; threshold</td><td>6 days</td></tr>
+        <tr><td>Watched Package</td><td>New upstream version</td><td>7 days per pkg+version</td></tr>
+        <tr><td>Unmonitored Alert</td><td>New package without source</td><td>Permanent (once per pkg)</td></tr>
+        <tr><td>Worker Alert</td><td>Worker consecutive failures</td><td>24 hours per worker</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<%/* Recent Notifications Log */%>
+<% if (recentNotifications.length > 0) { %>
+<div class="card" style="margin-bottom: 1rem;" data-help="settings-recent-notifications">
+  <div class="card-header">Recent Notifications</div>
+  <table class="data-table" style="border: none; border-radius: 0;">
+    <thead>
+      <tr>
+        <th data-help="settings-notif-sent-col">Sent</th>
+        <th data-help="settings-notif-type-col">Type</th>
+        <th data-help="settings-notif-subject-col">Subject</th>
+        <th data-help="settings-notif-recipient-col">Recipient</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% recentNotifications.forEach(function(n) { %>
+        <tr>
+          <td class="text-secondary text-sm"><%= fmtDateTime(n.sentAt) %></td>
+          <td><span class="badge badge-info"><%= n.type %></span></td>
+          <td class="text-sm"><%= n.subject.replace('[' + brand.productName + '] ', '').substring(0, 60) %></td>
+          <td class="text-secondary text-sm mono"><%= n.recipient %></td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</div>
+<% } %>
+
+<% if (sourceBreakdown.length > 0) { %>
+<div class="card" data-help="settings-upstream-sources-by-type">
+  <div class="card-header">Upstream Sources by Type</div>
+  <table class="data-table" style="border: none; border-radius: 0;">
+    <thead>
+      <tr>
+        <th data-help="settings-source-type-col">Source Type</th>
+        <th data-help="settings-source-count-col">Count</th>
+        <th data-help="settings-source-last-checked-col">Last Checked</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% sourceBreakdown.forEach(function(s) { %>
+        <tr>
+          <td><span class="badge badge-info"><%= s.sourceType %></span></td>
+          <td><%= s.count %></td>
+          <td class="text-secondary">
+            <% var check = recentChecks.find(function(c) { return c.sourceType === s.sourceType; }); %>
+            <%= check && check.lastChecked ? fmtDateTime(check.lastChecked) : 'Never' %>
+          </td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</div>
+<% } %>
+
+<%/* -- Unmatched CVE Products ------------------------------------------- */%>
+<% if (unmatchedProducts && unmatchedProducts.length > 0) { %>
+<div class="card" style="margin-top:1rem;" data-help="settings-unmatched-cve-products">
+  <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;">
+    Unmatched CVE Products
+    <span class="badge badge-warning"><%= unmatchedProducts.length %></span>
+  </div>
+  <div class="card-body" style="padding:0;">
+    <p class="text-sm text-muted" style="padding:0.75rem 1rem 0.5rem;">
+      These product names appeared in CVE feeds but couldn't be mapped to any installed package.
+      Map them to a package to improve CVE matching accuracy.
+    </p>
+    <table class="data-table" style="border:none;border-radius:0;">
+      <thead>
+        <tr>
+          <th data-help="settings-unmatched-product-col">Product</th>
+          <th data-help="settings-unmatched-vendor-col">Vendor</th>
+          <th data-help="settings-unmatched-cves-col">CVEs</th>
+          <th data-help="settings-unmatched-lastseen-col">Last Seen</th>
+          <th data-help="settings-unmatched-map-col">Map to Package</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% unmatchedProducts.forEach(function(p) { %>
+          <tr>
+            <td class="mono text-sm"><%= p.productName %></td>
+            <td class="text-sm text-muted"><%= p.vendor || '-' %></td>
+            <td><span class="badge badge-info"><%= p.cveCount %></span></td>
+            <td class="text-sm text-muted"><%= fmtDate(p.lastSeen) %></td>
+            <td>
+              <form method="post" action="/settings/cve-alias" style="display:flex;gap:0.25rem;">
+                <input type="hidden" name="product" value="<%= p.productName %>">
+                <input type="text" name="package" class="form-input" list="pkg-names" placeholder="package name" data-help="settings-unmatched-map-input"
+                  style="font-size:0.8rem;padding:0.2rem 0.4rem;width:140px;">
+                <button type="submit" class="btn btn-sm btn-primary" data-help="settings-unmatched-map-btn" style="font-size:0.75rem;padding:0.15rem 0.4rem;">Map</button>
+              </form>
+            </td>
+          </tr>
+        <% }); %>
+      </tbody>
+    </table>
+  </div>
+</div>
+<datalist id="pkg-names">
+  <% packageNames.forEach(function(n) { %><option value="<%= n %>"><% }); %>
+</datalist>
+<% } %>
+
+<%/* -- Staleness Score Multipliers -------------------------------------- */%>
+<div class="card" style="margin-top:1rem;" data-help="settings-staleness-multipliers">
+  <div class="card-header">Staleness Score Multipliers</div>
+  <div class="card-body">
+    <p class="text-sm text-muted" style="margin-bottom:0.75rem;">
+      Adjust staleness score weight by package group. A multiplier of 1.5 makes toolchain packages score 50% higher. Default is 1.0 (no change).
+    </p>
+    <form method="post" action="/settings/staleness-multipliers">
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:0.5rem;margin-bottom:0.75rem;">
+        <% ['toolchain','kde','core','apps','security'].forEach(function(g) { %>
+          <div>
+            <label class="text-sm" style="display:block;margin-bottom:0.15rem;"><%= g %></label>
+            <input type="number" name="mult_<%= g %>" class="form-input" data-help="settings-staleness-mult-input" step="0.1" min="0" max="5"
+              value="<%= groupMultipliers[g] !== undefined ? groupMultipliers[g] : 1.0 %>"
+              style="font-size:0.85rem;width:100%;">
+          </div>
+        <% }); %>
+      </div>
+      <button type="submit" class="btn btn-primary btn-sm" data-help="settings-save-multipliers">Save Multipliers</button>
+    </form>
+  </div>
+</div>

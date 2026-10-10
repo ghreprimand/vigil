@@ -1,0 +1,72 @@
+<div class="card">
+  <div class="card-header" data-help="batch-build-order">Build Order</div>
+  <% if (batch.items.length === 0) { %>
+    <div class="card-body">
+      <p class="text-muted" style="text-align:center;padding:1rem 0;">No items in this batch.</p>
+    </div>
+  <% } else { %>
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:2.5rem;" data-help="batch-item-order">#</th>
+            <th style="width:2rem;" data-help="batch-item-checkbox"></th>
+            <th data-help="batch-item-package">Package</th>
+            <th data-help="batch-item-from">From</th>
+            <th data-help="batch-item-to">To</th>
+            <th data-help="batch-item-score">Score</th>
+            <th data-help="batch-item-cves">CVEs</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% batch.items.forEach(function(item) { %>
+            <tr style="<%= item.status === 'completed' ? 'opacity:0.6;' : '' %>">
+              <td class="text-muted text-sm"><%= item.buildOrder %></td>
+              <td>
+                <% if (batch.status !== 'completed') { %>
+                  <form method="post" action="/batches/<%= batch.id %>/toggle"
+                        hx-post="/batches/<%= batch.id %>/toggle"
+                        hx-target="#batch-items"
+                        hx-swap="innerHTML"
+                        style="display:inline;">
+                    <input type="hidden" name="package" value="<%= item.packageName %>">
+                    <input type="hidden" name="status" value="<%= item.status %>">
+                    <button type="submit" style="background:none;border:none;cursor:pointer;font-size:1.1rem;padding:0;line-height:1;"
+                            title="<%= item.status === 'completed' ? 'Mark pending' : 'Mark completed' %>">
+                      <%= item.status === 'completed' ? '&#9745;' : '&#9744;' %>
+                    </button>
+                  </form>
+                <% } else { %>
+                  <span style="font-size:1.1rem;">&#9745;</span>
+                <% } %>
+              </td>
+              <td>
+                <a href="/packages/<%= encodeURIComponent(item.packageName) %>" style="font-family:var(--font-mono);font-size:0.85rem;">
+                  <%= item.packageName %>
+                </a>
+              </td>
+              <td class="text-sm" style="font-family:var(--font-mono);"><%= item.fromVersion %></td>
+              <td class="text-sm" style="font-family:var(--font-mono);"><%= item.toVersion %></td>
+              <td>
+                <% if (item.score !== null) { %>
+                  <span class="badge <%= item.score >= 25 ? 'badge-danger' : item.score >= 15 ? 'badge-warning' : 'badge-info' %>">
+                    <%= item.score %>
+                  </span>
+                <% } else { %>
+                  <span class="text-muted text-sm">-</span>
+                <% } %>
+              </td>
+              <td>
+                <% if (item.cveCount > 0) { %>
+                  <span class="badge badge-danger"><%= item.cveCount %></span>
+                <% } else { %>
+                  <span class="text-muted text-sm">-</span>
+                <% } %>
+              </td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</div>

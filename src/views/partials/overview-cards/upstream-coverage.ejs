@@ -1,0 +1,43 @@
+<%/* -- Upstream Coverage ------------------------------------------------------ */%>
+<div class="card" data-help="overview-upstream-coverage">
+  <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;">
+    <a href="/packages" style="color:inherit;text-decoration:none;">Upstream Coverage</a>
+    <span class="text-muted text-sm" style="font-weight:400;"><%= coverage.pct %>% monitored</span>
+  </div>
+  <div class="card-body" style="padding:0.5rem 0.85rem;">
+    <div style="display:flex;gap:1rem;align-items:center;">
+      <div style="position:relative;width:80px;height:80px;flex-shrink:0;">
+        <svg viewBox="0 0 36 36" style="width:80px;height:80px;transform:rotate(-90deg);">
+          <circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--bg-tertiary)" stroke-width="3"/>
+          <circle cx="18" cy="18" r="15.9" fill="none" stroke="var(--green)" stroke-width="3"
+            stroke-dasharray="<%= coverage.pct %> <%= 100 - coverage.pct %>"
+            stroke-linecap="round"/>
+        </svg>
+        <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:1rem;font-weight:700;color:var(--green);">
+          <%= coverage.pct %>%
+        </div>
+      </div>
+      <div style="flex:1;font-size:0.82rem;">
+        <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;">
+          <span class="text-muted">Monitored</span>
+          <span style="font-weight:600;color:var(--green);"><%= coverage.covered %></span>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;">
+          <span class="text-muted">Unmonitored</span>
+          <span style="font-weight:600;color:<%= coverage.unmonitored > 0 ? 'var(--orange)' : 'var(--green)' %>;"><%= coverage.unmonitored %></span>
+        </div>
+        <div style="display:flex;justify-content:space-between;">
+          <span class="text-muted">Total</span>
+          <span style="font-weight:600;"><%= coverage.total %></span>
+        </div>
+        <% if (typeof upstreamByType !== 'undefined' && upstreamByType.length > 0) { %>
+        <div style="display:flex;flex-wrap:wrap;gap:0.3rem;margin-top:0.5rem;">
+          <% upstreamByType.forEach(function(t) { %>
+            <span style="font-size:0.7rem;padding:0.1rem 0.4rem;background:var(--bg-tertiary);border-radius:4px;color:var(--text-secondary);"><%= t.type %> <span style="font-weight:600;color:var(--text-primary);"><%= t.count %></span></span>
+          <% }); %>
+        </div>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</div>

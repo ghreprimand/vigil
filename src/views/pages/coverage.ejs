@@ -1,0 +1,105 @@
+
+<%/* -- Overall Progress ------------------------------------------------ */%>
+<div class="card" style="margin-bottom:1rem;" data-help="coverage-overall">
+  <div class="card-body">
+    <div style="display:flex;align-items:center;gap:1rem;margin-bottom:0.5rem;">
+      <div data-help="coverage-progress-bar" style="flex:1;height:12px;background:var(--bg-tertiary);border-radius:6px;overflow:hidden;">
+        <div style="width:<%= pct %>%;height:100%;background:<%= pct >= 90 ? 'var(--green)' : pct >= 70 ? 'var(--orange)' : 'var(--red)' %>;border-radius:6px;transition:width 0.3s;"></div>
+      </div>
+      <span data-help="coverage-percentage" style="font-size:1.2rem;font-weight:600;min-width:5rem;text-align:right;color:<%= pct >= 90 ? 'var(--green)' : pct >= 70 ? 'var(--orange)' : 'var(--red)' %>;">
+        <%= pct %>%
+      </span>
+    </div>
+    <div style="display:flex;gap:2rem;font-size:0.9rem;color:var(--text-muted);">
+      <span data-help="coverage-monitored-count"><strong><%= monitored %></strong> monitored</span>
+      <span data-help="coverage-unmonitored-count"><strong><%= unmonitored %></strong> unmonitored</span>
+      <span data-help="coverage-total-count"><strong><%= total %></strong> total</span>
+    </div>
+  </div>
+</div>
+
+<%/* -- Group Breakdown ------------------------------------------------- */%>
+<% if (groupBreakdown.length > 0) { %>
+<div class="card" style="margin-bottom:1rem;" data-help="coverage-by-group">
+  <div class="card-header">Coverage by Group</div>
+  <div class="card-body" style="padding:0;">
+    <table class="data-table" style="border:none;border-radius:0;">
+      <thead>
+        <tr>
+          <th data-help="coverage-group-col">Group</th>
+          <th data-help="coverage-coverage-col">Coverage</th>
+          <th data-help="coverage-covered-col">Covered</th>
+          <th data-help="coverage-total-col">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% groupBreakdown.forEach(function(g) { %>
+          <tr>
+            <td><span class="badge badge-info" data-help="coverage-group-badge"><%= g.group %></span></td>
+            <td>
+              <div style="display:flex;align-items:center;gap:0.5rem;">
+                <div style="flex:1;max-width:120px;height:6px;background:var(--bg-tertiary);border-radius:3px;overflow:hidden;">
+                  <div style="width:<%= g.pct %>%;height:100%;background:<%= g.pct >= 90 ? 'var(--green)' : g.pct >= 70 ? 'var(--orange)' : 'var(--red)' %>;border-radius:3px;"></div>
+                </div>
+                <span class="text-sm"><%= g.pct %>%</span>
+              </div>
+            </td>
+            <td class="text-sm"><%= g.covered %></td>
+            <td class="text-sm"><%= g.total %></td>
+          </tr>
+        <% }); %>
+      </tbody>
+    </table>
+  </div>
+</div>
+<% } %>
+
+<%/* -- Unmonitored Packages -------------------------------------------- */%>
+<div class="card" data-help="coverage-unmonitored">
+  <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;">
+    Unmonitored Packages
+    <span class="badge badge-warning"><%= unmonitored %></span>
+  </div>
+  <% if (unmatchedPkgs.length === 0) { %>
+    <div class="card-body">
+      <p class="text-muted" style="text-align:center;padding:2rem 0;">All packages have upstream sources configured.</p>
+    </div>
+  <% } else { %>
+    <div class="card-body" style="padding:0;">
+      <table class="data-table" style="border:none;border-radius:0;">
+        <thead>
+          <tr>
+            <th data-help="coverage-unmon-package-col">Package</th>
+            <th data-help="coverage-unmon-version-col">Version</th>
+            <th data-help="coverage-unmon-groups-col">Groups</th>
+            <th data-help="coverage-unmon-actions-col">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% unmatchedPkgs.forEach(function(p) { %>
+            <tr>
+              <td>
+                <a href="/packages/<%= encodeURIComponent(p.name) %>" style="font-family:var(--font-mono);font-size:0.85rem;">
+                  <%= p.name %>
+                </a>
+              </td>
+              <td class="text-sm mono"><%= p.version %></td>
+              <td>
+                <% if (p.groups && Array.isArray(p.groups)) { %>
+                  <% p.groups.forEach(function(g) { %>
+                    <span class="badge badge-info" style="font-size:0.7rem;"><%= g %></span>
+                  <% }); %>
+                <% } %>
+              </td>
+              <td>
+                <a href="/packages/<%= encodeURIComponent(p.name) %>" class="btn btn-sm" data-help="coverage-add-source" style="font-size:0.75rem;padding:0.15rem 0.5rem;text-decoration:none;">
+                  Add Source
+                </a>
+              </td>
+            </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</div>

@@ -1,0 +1,47 @@
+<div style="display:flex;justify-content:flex-end;margin-bottom:0.75rem;">
+  <a href="/kb/new" class="btn btn-primary" data-help="kb-new-article">New Article</a>
+</div>
+
+<div class="toolbar">
+  <input type="search" name="q" class="search-input" data-help="kb-search" placeholder="Search articles..."
+    value="<%= query %>"
+    hx-get="/kb" hx-trigger="input changed delay:300ms, search" hx-target="body"
+    hx-push-url="true" hx-include="[name='tag']">
+  <select name="tag" class="filter-select" data-help="kb-tag-filter"
+    hx-get="/kb" hx-trigger="change" hx-target="body" hx-push-url="true"
+    hx-include="[name='q']">
+    <option value="">All tags</option>
+    <% allTags.forEach(function(t) { %>
+      <option value="<%= t %>" <%= activeTag === t ? 'selected' : '' %>><%= t %></option>
+    <% }) %>
+  </select>
+</div>
+
+<% if (docs.length === 0) { %>
+  <div class="empty-state">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+    <p>No articles yet. <a href="/kb/new">Create one</a> to document build fixes, compatibility notes, or troubleshooting guides.</p>
+  </div>
+<% } else { %>
+  <div style="display:flex;flex-direction:column;gap:0.75rem;">
+    <% docs.forEach(function(doc) { %>
+      <a href="/kb/<%= doc.slug %>" class="card" data-help="kb-article-card" style="text-decoration:none;color:inherit;transition:border-color var(--transition);"
+         onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border-primary)'">
+        <div class="card-body" style="padding:0.85rem 1rem;">
+          <div style="display:flex;align-items:baseline;gap:0.5rem;margin-bottom:0.35rem;">
+            <span data-help="kb-article-title" style="font-weight:600;font-size:0.95rem;"><%= doc.title %></span>
+            <span class="text-muted text-sm" data-help="kb-article-updated" style="margin-left:auto;white-space:nowrap;"><%= fmtDate(doc.updated_at || doc.updatedAt) %></span>
+          </div>
+          <% const pkgs = (typeof doc.linked_packages === 'string' ? JSON.parse(doc.linked_packages) : doc.linked_packages) || []; %>
+          <% if (pkgs.length > 0) { %>
+            <div style="display:flex;gap:0.35rem;flex-wrap:wrap;">
+              <% pkgs.forEach(function(p) { %>
+                <span class="badge badge-info" data-help="kb-article-package-badge"><%= p.name %></span>
+              <% }) %>
+            </div>
+          <% } %>
+        </div>
+      </a>
+    <% }) %>
+  </div>
+<% } %>

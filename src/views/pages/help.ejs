@@ -1,0 +1,134 @@
+<div class="card" style="margin-bottom: 1rem;">
+  <div class="card-header">What is <%= brand.productName %>?</div>
+  <div class="card-body">
+    <p><strong><%= brand.productName %></strong> tracks upstream releases and security advisories for source-built Linux systems. It is a <strong>monitor, not an installer</strong>: it tells you when a newer upstream version or a relevant CVE appears for a package you have installed, but it never builds or installs anything on your machine.</p>
+    <p>You feed it a <strong>package manifest</strong> (the list of packages and versions installed on a host). <%= brand.productName %> compares those versions against upstream sources, scores how stale each package is, and matches your packages against public vulnerability feeds. The results are presented on this dashboard and, optionally, by email digest.</p>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom: 1rem;">
+  <div class="card-header">Accessing the Dashboard</div>
+  <div class="card-body">
+    <p>The dashboard is served over HTTP. Authentication is controlled by the <code>AUTH_MODE</code> setting:</p>
+    <ul>
+      <li><strong>none</strong> &mdash; no login (intended only for a trusted LAN or when a reverse proxy handles auth).</li>
+      <li><strong>password</strong> &mdash; a single admin account using <code>AUTH_USERNAME</code> and a hashed <code>AUTH_PASSWORD_HASH</code>.</li>
+      <li><strong>oidc</strong> &mdash; single sign-on via an external identity provider.</li>
+    </ul>
+    <p>For an internet-facing deployment, run behind a reverse proxy that terminates TLS. See <code>docs/deployment.md</code> for the LAN-local and external/VPS profiles.</p>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom: 1rem;">
+  <div class="card-header">How It Works</div>
+  <div class="card-body">
+    <p>The data flow has four stages:</p>
+    <ol>
+      <li><strong>Ingest.</strong> A producer on each monitored host collects installed packages and POSTs a signed JSON manifest to <code>/api/v1/manifest</code>. Requests are authenticated with an HMAC signature, independent of the dashboard <code>AUTH_MODE</code>. See <code>docs/manifest-contract.md</code> and the example producers under <code>examples/producers/</code>.</li>
+      <li><strong>Detect.</strong> Scheduled background workers query upstream sources (GitHub, GitLab, PyPI, Flathub, GNU FTP, the Linux kernel, KDE, and generic HTML release pages) for the newest version of each tracked package.</li>
+      <li><strong>Score and match.</strong> A staleness scorer ranks packages by how far behind upstream they are. CVE workers pull from public vulnerability feeds and link advisories to your installed packages by name and version range.</li>
+      <li><strong>Report.</strong> The dashboard surfaces outdated packages, open CVEs, advisories, and update batches. Optional email digests summarize the same data on a schedule.</li>
+    </ol>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom: 1rem;">
+  <div class="card-header">Background Workers</div>
+  <div class="card-body">
+    <p><%= brand.productName %> runs scheduled workers on a job queue. The release and staleness workers are:</p>
+    <ul>
+      <li><code>github-release</code>, <code>gitlab-release</code> &mdash; latest tags/releases from GitHub and GitLab projects.</li>
+      <li><code>pypi-release</code> &mdash; latest versions from the Python Package Index.</li>
+      <li><code>flathub-release</code> &mdash; latest Flatpak builds from Flathub.</li>
+      <li><code>gnu-release</code> &mdash; latest tarballs from the GNU FTP tree.</li>
+      <li><code>kernel-release</code> &mdash; latest Linux kernel releases.</li>
+      <li><code>kde-release</code> &mdash; latest KDE module releases.</li>
+      <li><code>generic-release</code> &mdash; scrapes a configured HTML page for version strings.</li>
+      <li><code>blfs-errata</code> &mdash; package errata from the Beyond Linux From Scratch book.</li>
+      <li><code>staleness-scorer</code> &mdash; computes the staleness score for every package.</li>
+    </ul>
+    <p>The security and maintenance workers are:</p>
+    <ul>
+      <li><code>nvd-cve</code> &mdash; CVE records from the National Vulnerability Database.</li>
+      <li><code>osv-cve</code> &mdash; advisories from the OSV database.</li>
+      <li><code>arch-security</code> &mdash; advisories from the Arch Linux security tracker.</li>
+      <li><code>cve-resolver</code> &mdash; matches and re-evaluates CVEs against installed versions, auto-clearing fixed ones.</li>
+      <li><code>digest-mailer</code> &mdash; sends the weekly and monthly email digests.</li>
+      <li><code>db-retention</code> &mdash; prunes old rows to keep the database bounded.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom: 1rem;">
+  <div class="card-header">Dashboard Pages</div>
+  <div class="card-body">
+    <ul>
+      <li><strong>Overview</strong> &mdash; a configurable card grid summarizing package counts, upstream coverage, open CVEs, staleness trends, and recent activity.</li>
+      <li><strong>Packages</strong> &mdash; every tracked package with installed version, groups, upstream source, and staleness.</li>
+      <li><strong>Updates</strong> &mdash; packages with a newer upstream version available, excluding pinned and deferred entries.</li>
+      <li><strong>Activity</strong> &mdash; a log of manifest pushes, detections, and CVE events.</li>
+      <li><strong>CVEs</strong> &mdash; matched vulnerabilities, split into "fix available" and "no fix yet".</li>
+      <li><strong>Knowledge Base / Advisories</strong> &mdash; your own build notes and curated upstream advisories.</li>
+      <li><strong>Batches</strong> &mdash; grouped update plans you can copy as a markdown checklist.</li>
+      <li><strong>Graph</strong> &mdash; a dependency graph for a selected package.</li>
+      <li><strong>Settings</strong> &mdash; API key, alert thresholds, staleness multipliers, and notification preferences.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom: 1rem;">
+  <div class="card-header">Managing Upstream Sources</div>
+  <div class="card-body">
+    <p>Each package can have an upstream source that tells the workers where to look for newer versions. Sources are configured on the Sources page or inferred automatically from a built-in mapping. Source types include <code>github</code>, <code>gitlab</code>, <code>pypi</code>, <code>flathub</code>, <code>gnu</code>, <code>kernel</code>, and <code>generic</code> (HTML scrape). Packages without a source still appear in inventory but cannot be version-checked.</p>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom: 1rem;">
+  <div class="card-header">Pinning, Deferring, and Watching</div>
+  <div class="card-body">
+    <ul>
+      <li><strong>Pin</strong> a package to permanently exclude it from the outdated list (for packages you intentionally hold back).</li>
+      <li><strong>Defer</strong> a package to hide it temporarily, with an optional expiry date.</li>
+      <li><strong>Watch</strong> a package to receive a notification the moment a new upstream version is detected.</li>
+    </ul>
+    <p>Pinned and deferred packages are still tracked and still appear in inventory; they are only excluded from the staleness reports.</p>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom: 1rem;">
+  <div class="card-header">Bulk Operations</div>
+  <div class="card-body">
+    <p>The Updates and Packages pages support selecting multiple packages to pin, defer, or add to a batch in one action. Batches can be exported as a markdown checklist for use in your own update workflow.</p>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom: 1rem;">
+  <div class="card-header">Knowledge Base &amp; Advisories</div>
+  <div class="card-body">
+    <p>The Knowledge Base stores your own build notes per package: patches, configure flags, gotchas, and links. Advisories are curated upstream security or release notices you want surfaced alongside the automated CVE feeds.</p>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom: 1rem;">
+  <div class="card-header">Understanding the Numbers</div>
+  <div class="card-body">
+    <p><strong>Upstream coverage</strong> is the share of packages that have a configured upstream source. <strong>Staleness score</strong> weights how far behind upstream a package is, adjusted by group multipliers you set in Settings. <strong>Open CVEs</strong> counts confirmed, non-triage vulnerability matches against your installed versions.</p>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom: 1rem;">
+  <div class="card-header">Email Reports</div>
+  <div class="card-body">
+    <p>When SMTP is configured (<code>SMTP_ENABLED=true</code> plus the <code>SMTP_*</code> settings), <%= brand.productName %> can send CVE alerts, staleness alerts, and weekly and monthly digests. Recipients and thresholds are configured on the Settings page. Use the test-email button there to verify delivery.</p>
+  </div>
+</div>
+
+<% if (contextContent) { %>
+<div class="card" style="margin-bottom: 1rem;">
+  <div class="card-header">Help Context File</div>
+  <div class="card-body">
+    <p>An optional markdown context file (configured via <code>HELP_CONTEXT_FILE</code>) is shown below. It can be fetched as plain text from <a href="/help/context"><code>/help/context</code></a> for copy-paste into an external assistant.</p>
+    <pre style="white-space:pre-wrap;background:var(--bg-tertiary);padding:0.75rem;border-radius:6px;overflow-x:auto;font-size:0.8rem;"><%= contextContent %></pre>
+  </div>
+</div>
+<% } %>

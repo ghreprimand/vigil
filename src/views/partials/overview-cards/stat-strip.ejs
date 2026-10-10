@@ -1,0 +1,35 @@
+<%/* -- Top Stat Cards ------------------------------------------------------- */%>
+<div class="stat-grid" style="margin-bottom:0;">
+  <a href="/packages" class="stat-card" data-help="overview-total-packages">
+    <div style="display:flex;align-items:baseline;justify-content:space-between;">
+      <div class="stat-value text-blue"><%= packageCount %></div>
+      <div class="stat-value" style="color:<%= coverage.pct >= 90 ? 'var(--green)' : coverage.pct >= 70 ? 'var(--orange)' : 'var(--red)' %>;"><%= coverage.pct %>%</div>
+    </div>
+    <div style="display:flex;justify-content:space-between;" class="stat-label">
+      <span>Packages</span>
+      <span>UX Cvg</span>
+    </div>
+  </a>
+  <a href="/updates" class="stat-card" data-help="overview-outdated">
+    <div class="stat-value <%= outdatedCount > 0 ? 'text-orange' : 'text-green' %>">
+      <%= outdatedCount %>
+      <% if (outdatedCount > 0) { %>
+        <span class="stat-dots" data-help="overview-staleness-tiers">
+          <% if (stalenessTiers.critical > 0) { %><span class="stat-dot" style="background:var(--red);"><%= stalenessTiers.critical %></span><% } %>
+          <% if (stalenessTiers.high > 0) { %><span class="stat-dot" style="background:var(--orange);"><%= stalenessTiers.high %></span><% } %>
+          <% if (stalenessTiers.medium > 0) { %><span class="stat-dot" style="background:#b8860b;"><%= stalenessTiers.medium %></span><% } %>
+          <% if (stalenessTiers.low > 0) { %><span class="stat-dot" style="background:var(--green);"><%= stalenessTiers.low %></span><% } %>
+        </span>
+      <% } %>
+    </div>
+    <div class="stat-label">Outdated</div>
+  </a>
+  <a href="/cves" class="stat-card" data-help="overview-open-cves">
+    <div class="stat-value <%= openCveCount > 0 ? 'text-red' : 'text-green' %>"><%= openCveCount %></div>
+    <div class="stat-label">Open CVEs</div>
+  </a>
+  <a href="/settings" class="stat-card" data-help="overview-vps-updates">
+    <div class="stat-value <%= vps.updatesCount > 0 ? 'text-orange' : 'text-green' %>"><%= vps.updatesCount %></div>
+    <div class="stat-label">Host Updates</div>
+  </a>
+</div>

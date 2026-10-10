@@ -1,0 +1,33 @@
+<div class="card">
+  <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;">
+    <a href="/packages" style="color:inherit;text-decoration:none;" data-help="overview-packages-section">Packages</a>
+    <span class="text-muted text-sm" style="font-weight:400;"><%= packageCount %> total</span>
+  </div>
+  <div class="card-body">
+    <table class="info-table">
+      <tr data-help="overview-last-push">
+        <td>Last Manifest Push</td>
+        <td><%= lastPush ? fmtDateTime(lastPush.pushedAt) : 'Never' %></td>
+      </tr>
+      <tr data-help="overview-outdated-count">
+        <td>Outdated</td>
+        <td>
+          <strong class="<%= outdatedCount > 0 ? 'text-orange' : 'text-green' %>"><%= outdatedCount %></strong>
+          <% if (deferredCount > 0) { %>
+            <span class="text-muted text-sm">(+ <%= deferredCount %> deferred)</span>
+          <% } %>
+        </td>
+      </tr>
+      <tr data-help="overview-open-cves-count">
+        <td>Open CVEs</td>
+        <td><strong class="<%= openCveCount > 0 ? 'text-red' : 'text-green' %>"><%= openCveCount %></strong></td>
+      </tr>
+      <% if (advisoryCount > 0) { %>
+      <tr data-help="overview-active-advisories">
+        <td>Active Advisories</td>
+        <td><a href="/advisories"><strong class="text-orange"><%= advisoryCount %></strong></a></td>
+      </tr>
+      <% } %>
+    </table>
+  </div>
+</div>

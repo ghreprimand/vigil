@@ -1,0 +1,72 @@
+<%/* -- Overview Layout (flat grid - each card is independently draggable) --- */%>
+<%
+  var orderedCards = dashboardConfig.cards
+    .filter(function(c) { return c.visible; })
+    .sort(function(a, b) { return a.order - b.order; });
+
+  var cardPartials = {
+    'stat-strip':            'overview-cards/stat-strip',
+    'active-batch':          'overview-cards/active-batch',
+    'recently-added':        'overview-cards/recently-added',
+    'recent-activity':       'overview-cards/recent-activity',
+    'packages-summary':      'overview-cards/packages-summary',
+    'most-outdated':         'overview-cards/most-outdated',
+    'recent-notifications':  'overview-cards/recent-notifications',
+    'staleness-trend':       'overview-cards/staleness-trend',
+    'watched-packages':      'overview-cards/watched-packages',
+    'worker-status':         'overview-cards/worker-status',
+    'cve-severity-breakdown':'overview-cards/cve-severity-breakdown',
+    'upstream-coverage':     'overview-cards/upstream-coverage',
+  };
+
+  var _cm = typeof cardMeta !== 'undefined' ? cardMeta : {};
+
+  function _getWidth(card) {
+    return card.width || (_cm[card.id] && _cm[card.id].defaultWidth) || 'full';
+  }
+
+  // Cards that only render when they have data - skip the wrapper if empty
+  var conditionalCards = {
+    'active-batch': typeof activeBatch !== 'undefined' && activeBatch,
+  };
+%>
+<div id="overview-card-container" class="ov-grid">
+<% orderedCards.forEach(function(card) {
+  if (!cardPartials[card.id]) return;
+  // Skip wrapper entirely for conditional cards with no data
+  if (card.id in conditionalCards && !conditionalCards[card.id]) return;
+  var w = _getWidth(card);
+  var _label = (_cm[card.id] && _cm[card.id].label) || card.id;
+  var mh = card.maxHeight ? card.maxHeight : 0;
+%>
+  <div class="ov-card-block <%= w === 'half' ? 'ov-half' : 'ov-full' %><%= mh > 0 ? ' ov-clamped' : '' %>" data-card-id="<%= card.id %>" data-card-width="<%= w %>"<%= mh > 0 ? ' data-card-maxh="' + mh + '"' : '' %> style="<%= mh > 0 ? '--card-max-h:' + mh + 'px;' : '' %>">
+    <div class="ov-arrange-handle"><span class="ov-grip">&#9776;</span> <%= _label %></div>
+    <%- include('./' + cardPartials[card.id] + '.ejs') %>
+  </div>
+<% }); %>
+</div>
+<script>
+document.getElementById('nav-updated').textContent='Updated '+new Date().toLocaleTimeString();
+document.querySelectorAll('time.local-time').forEach(function(el) {
+  var d = new Date(el.getAttribute('datetime'));
+  if (isNaN(d)) return;
+  var now = new Date();
+  var diff = d - now;
+  if (diff > 0 && diff < 86400000) {
+    el.textContent = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  } else if (diff > 0) {
+    el.textContent = d.toLocaleDateString(undefined, { weekday: 'short' }) + ' ' + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  } else {
+    el.textContent = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  }
+});
+document.querySelectorAll('time.local-time-relative').forEach(function(el) {
+  var d = new Date(el.getAttribute('datetime'));
+  if (isNaN(d)) return;
+  var diff = Date.now() - d;
+  var mins = Math.round(diff / 60000);
+  if (mins < 1) el.textContent = '<1m';
+  else if (mins < 60) el.textContent = mins + 'm';
+  else el.textContent = Math.floor(mins / 60) + 'h';
+});
+</script>
